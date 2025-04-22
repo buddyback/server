@@ -1,14 +1,13 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils.translation import gettext_lazy as _
 
 from .models import Device
 from .serializers import (
     DeviceSerializer,
-    DeviceClaimSerializer,
-    DeviceReleaseSerializer,
-    DeviceRenameSerializer
+    DeviceClaimSerializer
 )
 
 
@@ -16,18 +15,88 @@ class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.user and request.user.is_staff:
             return True
-        if view.action in ['list', 'claim_device', 'release_device', 'rename_device']:
+        if view.action in ['list', 'claim_device', 'release_device', 'retrieve', 'update', 'partial_update']:
             return request.user and request.user.is_authenticated
         return False
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=["devices-user"],
+        description="List all devices owned by the current user",
+        responses={200: DeviceSerializer(many=True)}
+    ),
+    retrieve=extend_schema(
+        tags=["devices-user"],
+        description="Retrieve a specific device",
+        responses={200: DeviceSerializer}
+    ),
+    update=extend_schema(
+        tags=["devices-user"],
+        description="Update a device",
+        request=DeviceSerializer,
+        responses={200: DeviceSerializer}
+    ),
+    partial_update=extend_schema(
+        tags=["devices-user"],
+        description="Partially update a device",
+        request=DeviceSerializer,
+        responses={200: DeviceSerializer}
+    ),
+    destroy=extend_schema(
+        tags=["devices-admin"],
+        description="Delete a device (admin only)",
+        responses={204: None}
+    ),
+    create=extend_schema(
+        tags=["devices-admin"],
+        description="Create a new device (admin only). Empty request body or specify optional values.",
+        request=DeviceSerializer,
+        responses={201: DeviceSerializer},
+        examples=[
+            OpenApiExample(
+                'Empty Request',
+                description='Empty request will create device with default values',
+                value={},
+            ),
+            OpenApiExample(
+                'Custom Values',
+                description='Specify custom values for the new device',
+                value={
+                    "name": "Temperature Sensor",
+                    "sensitivity": 65,
+                    "vibration_intensity": 40
+                },
+            ),
+        ],
+    ),
+    claim_device=extend_schema(
+        tags=["devices-user"],
+        description="Claim an unclaimed device",
+        request=DeviceClaimSerializer,
+        responses={200: DeviceSerializer}
+    ),
+    release_device=extend_schema(
+        tags=["devices-user"],
+        description="Release a device owned by the current user",
+        request=None,
+        responses={200: OpenApiResponse(description="Device released successfully")}
+    ),
+    unclaimed_devices=extend_schema(
+        tags=["devices-admin"],
+        description="List all unclaimed devices (admin only)",
+        responses={200: DeviceSerializer(many=True)}
+    )
+)
 class DeviceViewSet(viewsets.ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
     permission_classes = [IsAdminOrReadOnly]
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'id']
     filterset_fields = ['is_active']
+    ordering_fields = ['name', 'registration_date']
+    ordering = ['-registration_date']  # Default ordering
 
     def get_queryset(self):
         user = self.request.user
@@ -36,25 +105,58 @@ class DeviceViewSet(viewsets.ModelViewSet):
         return Device.objects.filter(user=user)
 
     def perform_create(self, serializer):
+        # Create device with defaults if not specified
         serializer.save()
 
-    @extend_schema(
-        request=DeviceClaimSerializer,
-        responses=DeviceSerializer,
-        methods=['POST'],
-        description="Claim a device by providing the device ID and assigning a name to it."
-    )
-    @action(detail=False, methods=['post'], url_path='claim', permission_classes=[permissions.IsAuthenticated])
-    def claim_device(self, request):
-        serializer = DeviceClaimSerializer(data=request.data)
+    def create(self, request, *args, **kwargs):
+        # Handle empty request body by providing defaults
+        data = request.data or {}
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        device_id = serializer.validated_data['device_id']
-        name = serializer.validated_data['name']
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not request.user.is_staff and instance.user != request.user:
+            return Response({'error': _('You do not own this device.')}, status=status.HTTP_403_FORBIDDEN)
+
+        allowed_fields = ['name', 'sensitivity', 'vibration_intensity']
+        data = {key: value for key, value in request.data.items() if key in allowed_fields or request.user.is_staff}
+
+        serializer = self.get_serializer(instance, data=data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not request.user.is_staff and instance.user != request.user:
+            return Response({'error': _('You do not own this device.')}, status=status.HTTP_403_FORBIDDEN)
+
+        allowed_fields = ['name', 'sensitivity', 'vibration_intensity']
+        data = {key: value for key, value in request.data.items() if key in allowed_fields or request.user.is_staff}
+
+        serializer = self.get_serializer(instance, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='claim', permission_classes=[permissions.IsAuthenticated])
+    def claim_device(self, request, pk=None):
         try:
-            device = Device.objects.get(id=device_id, user__isnull=True, is_active=False)
+            device = Device.objects.get(id=pk, user__isnull=True, is_active=False)
         except Device.DoesNotExist:
-            return Response({'error': 'Device not found or already claimed.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': _('Device not found or already claimed.')}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = DeviceClaimSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        name = serializer.validated_data['name']
 
         device.user = request.user
         device.name = name
@@ -63,48 +165,27 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         return Response(DeviceSerializer(device).data, status=status.HTTP_200_OK)
 
-    @extend_schema(
-        request=DeviceReleaseSerializer,
-        responses=DeviceSerializer,
-        methods=['POST'],
-        description="Release a device previously claimed by the user."
-    )
-    @action(detail=False, methods=['post'], url_path='release', permission_classes=[permissions.IsAuthenticated])
-    def release_device(self, request):
-        serializer = DeviceReleaseSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        device_id = serializer.validated_data['device_id']
-
+    @action(detail=True, methods=['post'], url_path='release', permission_classes=[permissions.IsAuthenticated])
+    def release_device(self, request, pk=None):
         try:
-            device = Device.objects.get(id=device_id, user=request.user)
+            device = Device.objects.get(id=pk, user=request.user)
         except Device.DoesNotExist:
-            return Response({'error': 'Device not found or not owned by you.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': _('Device not found or not owned by you.')}, status=status.HTTP_404_NOT_FOUND)
 
         device.user = None
+        device.name = "My Device"  # Reset to default name
         device.is_active = False
         device.save()
 
-        return Response({'status': 'Device released successfully'}, status=status.HTTP_200_OK)
+        return Response({'status': _('Device released successfully')}, status=status.HTTP_200_OK)
 
     @extend_schema(
-        request=DeviceRenameSerializer,
-        responses=DeviceSerializer,
-        methods=['PUT'],
-        description="Rename a device owned by the current user. You must provide the device ID and the new name."
+        methods=['GET'],
+        description="List all unclaimed devices (admin only)",
+        responses={200: DeviceSerializer(many=True)}
     )
-    @action(detail=False, methods=['put'], url_path='rename', permission_classes=[permissions.IsAuthenticated])
-    def rename_device(self, request):
-        serializer = DeviceRenameSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        device_id = serializer.validated_data['device_id']
-        name = serializer.validated_data['name']
-
-        try:
-            device = Device.objects.get(id=device_id, user=request.user)
-        except Device.DoesNotExist:
-            return Response({'error': 'Device not found or not owned by you.'}, status=status.HTTP_404_NOT_FOUND)
-
-        device.name = name
-        device.save()
-
-        return Response(DeviceSerializer(device).data, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['get'], url_path='unclaimed', permission_classes=[permissions.IsAdminUser])
+    def unclaimed_devices(self, request):
+        devices = Device.objects.filter(user__isnull=True, is_active=False)
+        serializer = self.get_serializer(devices, many=True)
+        return Response(serializer.data)
