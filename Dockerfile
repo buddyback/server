@@ -1,4 +1,4 @@
-FROM python:3.10.0
+FROM python:3.12
 
 # Set the working directory in the container to /app
 WORKDIR /app
@@ -6,10 +6,10 @@ WORKDIR /app
 # Add the current directory contents into the container at /app
 ADD . /app
 
-RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 libx264-dev -y
+# RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 libx264-dev -y
 
 # Upgrade pip
-RUN pip install --upgrade pip
+# RUN pip install --upgrade pip
 
 # Install faiss-cpu
 #RUN #pip install faiss-cpu
