@@ -1,13 +1,11 @@
 name: Build and deploy
 
 on:
-  workflow_run:
-    workflows: ["code-check.yml"]  # Use the exact filename or workflow name
-    types:
-      - completed
-    branches: ['main']
+  # This workflow is now triggered via workflow_dispatch from the code-check workflow
+  workflow_dispatch:
+    # No inputs needed
 
-# Defines two custom environment variables for the workflow. These are used for the Container registry domain, and a name for the Docker image that this workflow builds.
+# Defines custom environment variables for the workflow
 env:
   REGISTRY: git.marcorealacci.me
   USER: buddyback
@@ -19,8 +17,6 @@ jobs:
     runs-on: docker
     container:
       image: catthehacker/ubuntu:act-latest
-    # Only run if the code check workflow was successful
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout repository
