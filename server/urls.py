@@ -28,7 +28,7 @@ urlpatterns = [
 
     # AUTH
     path('auth/', include('djoser.urls')),
-    path('auth/', include('djoser.urls.jwt')),
+    path('auth/', include('authentication.urls')),
 
     # DEVICES
     path('', include('devices.urls')),

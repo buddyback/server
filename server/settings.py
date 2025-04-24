@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'rest_framework',
 
     'devices.apps.DevicesConfig',
-    'posture.apps.PostureConfig'
+    'posture.apps.PostureConfig',
+    'authentication.apps.AuthenticationConfig'
 ]
 
 SIMPLE_JWT = {
