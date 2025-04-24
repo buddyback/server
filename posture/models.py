@@ -10,7 +10,7 @@ class PostureReading(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     overall_score = models.IntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        default=0  # Add default value to avoid NOT NULL constraint
+        default=0
     )
 
     class Meta:
