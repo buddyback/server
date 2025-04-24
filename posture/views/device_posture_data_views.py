@@ -3,8 +3,8 @@ from rest_framework import viewsets, permissions, mixins
 
 from devices.models import Device
 from posture.authentication import DeviceAPIKeyAuthentication  # custom auth
-from posture.models import PostureData
-from posture.serializers.device_posture_data_serializers import PostureDataSerializer
+from posture.models import PostureReading
+from posture.serializers.device_posture_data_serializers import PostureReadingSerializer
 
 
 class IsDeviceAuthenticated(permissions.BasePermission):
@@ -25,19 +25,37 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                 "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
         summary="Submit posture data",
-        request=PostureDataSerializer,
+        request=PostureReadingSerializer,
         responses={
-            201: PostureDataSerializer,
+            201: PostureReadingSerializer,
             400: OpenApiResponse(description="Invalid data or authentication"),
             403: OpenApiResponse(description="Authentication failed or device not active")
         },
         examples=[
             OpenApiExample(
                 name="Posture Example",
-                description="Correct shoulder and neck position submitted by a device",
+                description="Complete posture data with neck, torso, and shoulders measurements",
                 value={
-                    "correct_shoulder_position": True,
-                    "correct_neck_position": False
+                    "components": [
+                        {
+                            "component_type": "neck",
+                            "is_correct": False,
+                            "score": 65,
+                            "correction": "Adjust neck angle up slightly"
+                        },
+                        {
+                            "component_type": "torso",
+                            "is_correct": True,
+                            "score": 90,
+                            "correction": "Maintain this upright position"
+                        },
+                        {
+                            "component_type": "shoulders",
+                            "is_correct": False,
+                            "score": 70,
+                            "correction": "Pull shoulders back to reduce hunching"
+                        }
+                    ]
                 },
                 request_only=True,
             )
@@ -67,23 +85,23 @@ class PostureDataViewSet(mixins.CreateModelMixin,
     ViewSet for handling posture data creation.
 
     Only the POST method is allowed. Devices must authenticate using custom headers:
-    - `id`: the device UUID
-    - `api_key`: the device’s unique API key
+    - `X-Device-ID`: the device UUID
+    - `X-API-KEY`: the device's unique API key
 
     Authenticated and active devices can post posture data, which will be associated
     to their device.
     """
-    queryset = PostureData.objects.all()
-    serializer_class = PostureDataSerializer
+    queryset = PostureReading.objects.all()
+    serializer_class = PostureReadingSerializer
     authentication_classes = [DeviceAPIKeyAuthentication]
     permission_classes = [permissions.AllowAny]  # Handled by DeviceAPIKeyAuthentication
 
     def get_queryset(self):
         """
         Returns posture data belonging to the authenticated device only.
-        (Shouldn’t be used unless extended to support GET methods).
+        (Shouldn't be used unless extended to support GET methods).
         """
-        return PostureData.objects.filter(device=self.request.user)
+        return PostureReading.objects.filter(device=self.request.user)
 
     def perform_create(self, serializer):
         """

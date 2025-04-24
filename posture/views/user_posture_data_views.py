@@ -7,8 +7,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from devices.models import Device
-from posture.models import PostureData
-from posture.serializers.user_posture_data_serializers import PostureDataSerializer
+from posture.models import PostureReading
+from posture.serializers.device_posture_data_serializers import PostureReadingSerializer
 
 
 @extend_schema_view(
@@ -42,7 +42,7 @@ from posture.serializers.user_posture_data_serializers import PostureDataSeriali
 class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for accessing posture data for a specific device owned by the authenticated user."""
 
-    serializer_class = PostureDataSerializer
+    serializer_class = PostureReadingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_device(self):
@@ -122,16 +122,16 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
             # Validate and parse date parameters
             dates = self.validate_date_params()
 
-            # Base queryset - adding select_related for potential foreign keys
-            queryset = PostureData.objects.filter(device=device).select_related(
-                'device'  # Add other related fields as needed
+            # Base queryset - using prefetch_related to optimize component queries
+            queryset = PostureReading.objects.filter(device=device).prefetch_related(
+                'components'  # Prefetch related components for performance
             )
 
             # Apply date filters
             queryset = self.apply_date_filters(queryset, dates)
 
             # Order by timestamp for consistent results
-            queryset = queryset.order_by('timestamp')
+            queryset = queryset.order_by('-timestamp')
 
             # Set the queryset for pagination and serialization
             self.queryset = queryset
@@ -152,4 +152,4 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
         """
         if hasattr(self, 'queryset'):
             return self.queryset
-        return PostureData.objects.none()
+        return PostureReading.objects.none()
