@@ -1,11 +1,12 @@
 from rest_framework import serializers
-from posture.models import PostureReading, PostureComponent
+
+from posture.models import PostureComponent, PostureReading
 
 
 class PostureComponentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostureComponent
-        fields = ['component_type', 'is_correct', 'score', 'correction']
+        fields = ["component_type", "is_correct", "score", "correction"]
 
 
 class PostureReadingSerializer(serializers.ModelSerializer):
@@ -13,11 +14,11 @@ class PostureReadingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PostureReading
-        fields = ['device', 'timestamp', 'overall_score', 'components']
-        read_only_fields = ['timestamp', 'device', 'overall_score']
+        fields = ["device", "timestamp", "overall_score", "components"]
+        read_only_fields = ["timestamp", "device", "overall_score"]
 
     def create(self, validated_data):
-        components_data = validated_data.pop('components')
+        components_data = validated_data.pop("components")
 
         # First create the reading with default score of 0
         reading = PostureReading.objects.create(**validated_data)
@@ -29,12 +30,12 @@ class PostureReadingSerializer(serializers.ModelSerializer):
         # Create all component records
         for component_data in components_data:
             PostureComponent.objects.create(reading=reading, **component_data)
-            total_score += component_data['score']
+            total_score += component_data["score"]
 
         # Calculate and save the overall score
         if component_count > 0:
             reading.overall_score = total_score // component_count
-            reading.save(update_fields=['overall_score'])
+            reading.save(update_fields=["overall_score"])
 
         return reading
 
@@ -43,8 +44,8 @@ class PostureReadingSerializer(serializers.ModelSerializer):
         if not components:
             raise serializers.ValidationError("At least one posture component is required")
 
-        component_types = [component['component_type'] for component in components]
-        required_types = ['neck', 'torso', 'shoulders']
+        component_types = [component["component_type"] for component in components]
+        required_types = ["neck", "torso", "shoulders"]
 
         # Check for duplicates
         if len(component_types) != len(set(component_types)):
