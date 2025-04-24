@@ -21,14 +21,8 @@ jobs:
         run: |
           make install-dev
 
-      - name: Run linting
-        run: make lint
-
       - name: Run tests
         run: make test
 
-      - name: Check formatting
-        run: |
-          # We just check formatting, we don't apply it in CI
-          black --line-length 120 --check --diff .
-          isort --check --diff .
+      - name: Run linting
+        run: make lint

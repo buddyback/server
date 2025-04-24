@@ -34,6 +34,8 @@ lint:
 	$(FLAKE8) . --count --exit-zero --max-line-length=127 --statistics --exclude=migrations,__pycache__,venv,env,.venv,.*,*/\.*
 	@echo "Running pylint..."
 	$(PYTHON) -m pylint --fail-under 8 --rcfile=.pylintrc .
+	@echo "Running black..."
+	$(BLACK) --check --line-length 120 . --exclude "/(\..*|migrations|__pycache__|venv|env|.conda|\.venv)/"
 	@echo "Checking imports with isort..."
 	$(ISORT) --check --diff . --skip-glob="*/\.*" --skip-glob="*/migrations/*" --skip-glob="*/__pycache__/*" --skip-glob="*/venv/*" --skip-glob="*/env/*" --skip-glob="*/.venv/*" --skip-glob="*/.conda/*"
 	@echo "Running mypy type checking..."
