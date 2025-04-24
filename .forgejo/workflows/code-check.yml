@@ -8,7 +8,7 @@ on:
 
 jobs:
   code-check:
-    name: code-quality-check
+    name: code-check
     runs-on: docker
     container:
       image: catthehacker/ubuntu:act-latest
