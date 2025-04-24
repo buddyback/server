@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PostureData
+from posture.models import PostureData
 
 class PostureDataSerializer(serializers.ModelSerializer):
     class Meta:

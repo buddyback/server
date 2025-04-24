@@ -2,9 +2,9 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExampl
 from rest_framework import viewsets, permissions, mixins
 
 from devices.models import Device
-from .authentication import DeviceAPIKeyAuthentication  # custom auth
-from .models import PostureData
-from .serializers import PostureDataSerializer
+from posture.authentication import DeviceAPIKeyAuthentication  # custom auth
+from posture.models import PostureData
+from posture.serializers.device_posture_data_serializers import PostureDataSerializer
 
 
 class IsDeviceAuthenticated(permissions.BasePermission):
@@ -19,7 +19,7 @@ class IsDeviceAuthenticated(permissions.BasePermission):
 
 @extend_schema_view(
     create=extend_schema(
-        tags=["posture"],
+        tags=["posture-data-device"],
         description=(
                 "Submit posture data from a Raspberry Pi device. "
                 "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
@@ -58,7 +58,7 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                 description="API key associated with the device"
             ),
         ],
-        auth=[]  # Because it's custom headers, not DRF auth classes
+        auth=[]
     )
 )
 class PostureDataViewSet(mixins.CreateModelMixin,
