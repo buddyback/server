@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'djoser',
     'rest_framework',
 
-    'devices.apps.DevicesConfig'
+    'devices.apps.DevicesConfig',
+    'posture.apps.PostureConfig'
 ]
 
 SIMPLE_JWT = {

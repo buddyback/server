@@ -32,4 +32,7 @@ urlpatterns = [
 
     # DEVICES
     path('', include('devices.urls')),
+
+    # POSTURE
+    path('', include('posture.urls'))
 ]
