@@ -1,5 +1,5 @@
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiResponse, extend_schema_view
-from rest_framework import viewsets, permissions, mixins
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
+from rest_framework import mixins, permissions, viewsets
 
 from devices.models import Device
 from posture.authentication import DeviceAPIKeyAuthentication  # custom auth
@@ -21,15 +21,15 @@ class IsDeviceAuthenticated(permissions.BasePermission):
     create=extend_schema(
         tags=["posture-data-device"],
         description=(
-                "Submit posture data from a Raspberry Pi device. "
-                "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
+            "Submit posture data from a Raspberry Pi device. "
+            "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
         summary="Submit posture data",
         request=PostureReadingSerializer,
         responses={
             201: PostureReadingSerializer,
             400: OpenApiResponse(description="Invalid data or authentication"),
-            403: OpenApiResponse(description="Authentication failed or device not active")
+            403: OpenApiResponse(description="Authentication failed or device not active"),
         },
         examples=[
             OpenApiExample(
@@ -41,20 +41,20 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                             "component_type": "neck",
                             "is_correct": False,
                             "score": 65,
-                            "correction": "Adjust neck angle up slightly"
+                            "correction": "Adjust neck angle up slightly",
                         },
                         {
                             "component_type": "torso",
                             "is_correct": True,
                             "score": 90,
-                            "correction": "Maintain this upright position"
+                            "correction": "Maintain this upright position",
                         },
                         {
                             "component_type": "shoulders",
                             "is_correct": False,
                             "score": 70,
-                            "correction": "Pull shoulders back to reduce hunching"
-                        }
+                            "correction": "Pull shoulders back to reduce hunching",
+                        },
                     ]
                 },
                 request_only=True,
@@ -66,21 +66,20 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                 location=OpenApiParameter.HEADER,
                 required=True,
                 type=str,
-                description="UUID of the device"
+                description="UUID of the device",
             ),
             OpenApiParameter(
                 name="X-API-KEY",
                 location=OpenApiParameter.HEADER,
                 required=True,
                 type=str,
-                description="API key associated with the device"
+                description="API key associated with the device",
             ),
         ],
-        auth=[]
+        auth=[],
     )
 )
-class PostureDataViewSet(mixins.CreateModelMixin,
-                         viewsets.GenericViewSet):
+class PostureDataViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     """
     ViewSet for handling posture data creation.
 
@@ -91,6 +90,7 @@ class PostureDataViewSet(mixins.CreateModelMixin,
     Authenticated and active devices can post posture data, which will be associated
     to their device.
     """
+
     queryset = PostureReading.objects.all()
     serializer_class = PostureReadingSerializer
     authentication_classes = [DeviceAPIKeyAuthentication]
