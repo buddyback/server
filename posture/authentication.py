@@ -22,4 +22,4 @@ class DeviceAPIKeyAuthentication(BaseAuthentication):
         except Device.DoesNotExist:
             raise AuthenticationFailed("Invalid device credentials")
 
-        return (device, None)
+        return device, None
