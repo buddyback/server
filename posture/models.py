@@ -1,20 +1,22 @@
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from devices.models import Device
 
 
 class PostureReading(models.Model):
     """Main model that represents a single posture reading from a device"""
-
-    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="posture_readings")
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='posture_readings')
     timestamp = models.DateTimeField(auto_now_add=True)
-    overall_score = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)], default=0)
+    overall_score = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        default=0
+    )
 
     class Meta:
-        ordering = ["-timestamp"]
+        ordering = ['-timestamp']
         indexes = [
-            models.Index(fields=["device", "timestamp"]),
+            models.Index(fields=['device', 'timestamp']),
         ]
 
     def __str__(self):
@@ -32,14 +34,13 @@ class PostureReading(models.Model):
 
 class PostureComponent(models.Model):
     """Individual posture component measurement (neck, torso, shoulders)"""
-
     COMPONENT_TYPES = [
-        ("neck", "Neck Position"),
-        ("torso", "Torso Position"),
-        ("shoulders", "Shoulders Position"),
+        ('neck', 'Neck Position'),
+        ('torso', 'Torso Position'),
+        ('shoulders', 'Shoulders Position'),
     ]
 
-    reading = models.ForeignKey(PostureReading, on_delete=models.CASCADE, related_name="components")
+    reading = models.ForeignKey(PostureReading, on_delete=models.CASCADE, related_name='components')
     component_type = models.CharField(max_length=10, choices=COMPONENT_TYPES)
     is_correct = models.BooleanField()
     score = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)])
@@ -47,9 +48,9 @@ class PostureComponent(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["reading", "component_type"]),
+            models.Index(fields=['reading', 'component_type']),
         ]
-        unique_together = ["reading", "component_type"]
+        unique_together = ['reading', 'component_type']
 
     def __str__(self):
         return f"{self.get_component_type_display()} for {self.reading}"

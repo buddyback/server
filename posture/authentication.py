@@ -1,15 +1,12 @@
 import uuid
-
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
-
 from .models import Device
-
 
 class DeviceAPIKeyAuthentication(BaseAuthentication):
     def authenticate(self, request):
-        device_id = request.headers.get("X-Device-ID")
-        api_key = request.headers.get("X-API-KEY")
+        device_id = request.headers.get('X-Device-ID')
+        api_key = request.headers.get('X-API-KEY')
 
         if not device_id or not api_key:
             return None
