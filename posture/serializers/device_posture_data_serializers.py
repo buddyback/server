@@ -57,3 +57,12 @@ class PostureReadingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Missing required component types: {', '.join(missing_types)}")
 
         return components
+
+
+class PostureChartDataSerializer(serializers.Serializer):
+    """Serializer for aggregated posture chart data"""
+    time_marker = serializers.CharField()  # Could be hour, day, or week depending on view
+    overall = serializers.IntegerField()
+    neck = serializers.IntegerField()
+    torso = serializers.IntegerField()
+    shoulders = serializers.IntegerField()

@@ -4,6 +4,7 @@ from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from posture.models import PostureReading
 from .models import Device
 from .serializers import DeviceClaimSerializer, DeviceSerializer
 
@@ -157,8 +158,12 @@ class DeviceViewSet(viewsets.ModelViewSet):
         except Device.DoesNotExist:
             return Response({"error": _("Device not found or not owned by you.")}, status=status.HTTP_404_NOT_FOUND)
 
+        device.posture_readings.all().delete()
+
         device.user = None
         device.name = "My Device"  # Reset to default name
+        device.sensitivity = 50  # Reset to default sensitivity
+        device.vibration_intensity = 50  # Reset to default vibration intensity
         device.is_active = False
         device.save()
 

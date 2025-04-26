@@ -1,13 +1,18 @@
+from datetime import datetime, timedelta
+
+from django.db.models import Avg
+from django.db.models.functions import TruncHour, TruncDay, TruncWeek
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from devices.models import Device
-from posture.models import PostureReading
-from posture.serializers.device_posture_data_serializers import PostureReadingSerializer
+from posture.models import PostureReading, PostureComponent
+from posture.serializers.device_posture_data_serializers import PostureReadingSerializer, PostureChartDataSerializer
 
 
 @extend_schema_view(
@@ -15,7 +20,7 @@ from posture.serializers.device_posture_data_serializers import PostureReadingSe
         tags=["posture-data-user"],
         summary="List posture data for a device owned by the authenticated user",
         description="Returns posture data from a specific device if the authenticated user is its owner. "
-        "Supports optional filtering by a specific date or a date range.",
+                    "Supports optional filtering by a specific date or a date range.",
         parameters=[
             OpenApiParameter(
                 name="date",
@@ -143,3 +148,303 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
         if hasattr(self, "queryset"):
             return self.queryset
         return PostureReading.objects.none()
+
+    @extend_schema(
+        tags=["posture-data-user"],
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Date for which to get daily data (default: today)",
+            ),
+        ],
+        responses={200: PostureChartDataSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='daily-chart')
+    def daily_chart(self, request, *args, **kwargs):
+        """Return hourly aggregated data for a specific day for charting."""
+        try:
+            device = self.get_device()
+
+            # Get date from query params or use today's date
+            date_str = request.query_params.get('date')
+            if date_str:
+                chart_date = parse_date(date_str)
+                if not chart_date:
+                    raise ValidationError({"date": f"Invalid date format: {date_str}. Use YYYY-MM-DD."})
+            else:
+                chart_date = datetime.now().date()
+
+            # Get base queryset for the specific day
+            queryset = PostureReading.objects.filter(
+                device=device,
+                timestamp__date=chart_date
+            )
+
+            # Get component scores by type
+            neck_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='neck'
+            ).values('reading')
+
+            torso_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='torso'
+            ).values('reading')
+
+            shoulders_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='shoulders'
+            ).values('reading')
+
+            # Aggregate by hour
+            hourly_data = queryset.annotate(
+                hour=TruncHour('timestamp')
+            ).values('hour').annotate(
+                overall=Avg('overall_score')
+            ).order_by('hour')
+
+            # Format for frontend
+            chart_data = []
+            for entry in hourly_data:
+                hour_str = entry['hour'].strftime('%H:%M')
+
+                # Find component scores for this hour
+                hour_neck = neck_scores.filter(
+                    reading__timestamp__hour=entry['hour'].hour
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                hour_torso = torso_scores.filter(
+                    reading__timestamp__hour=entry['hour'].hour
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                hour_shoulders = shoulders_scores.filter(
+                    reading__timestamp__hour=entry['hour'].hour
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                chart_data.append({
+                    'time_marker': hour_str,
+                    'overall': round(entry['overall']),
+                    'neck': round(hour_neck),
+                    'torso': round(hour_torso),
+                    'shoulders': round(hour_shoulders)
+                })
+
+            return Response(chart_data)
+
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["posture-data-user"],
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Start date for weekly range (default: 7 days ago)",
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="End date for weekly range (default: today)",
+            ),
+        ],
+        responses={200: PostureChartDataSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='weekly-chart')
+    def weekly_chart(self, request, *args, **kwargs):
+        """Return daily aggregated data for a week for charting."""
+        try:
+            device = self.get_device()
+
+            # Get date range from query params or use last 7 days
+            start_date_str = request.query_params.get('start_date')
+            end_date_str = request.query_params.get('end_date')
+
+            today = datetime.now().date()
+            if start_date_str:
+                start_date = parse_date(start_date_str)
+                if not start_date:
+                    raise ValidationError({"start_date": f"Invalid date format: {start_date_str}. Use YYYY-MM-DD."})
+            else:
+                start_date = today - timedelta(days=6)  # Last 7 days including today
+
+            if end_date_str:
+                end_date = parse_date(end_date_str)
+                if not end_date:
+                    raise ValidationError({"end_date": f"Invalid date format: {end_date_str}. Use YYYY-MM-DD."})
+            else:
+                end_date = today
+
+            if start_date > end_date:
+                raise ValidationError({"error": "'start_date' cannot be after 'end_date'"})
+
+            # Get base queryset for the date range
+            queryset = PostureReading.objects.filter(
+                device=device,
+                timestamp__date__range=(start_date, end_date)
+            )
+
+            # Get component scores by type
+            neck_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='neck'
+            ).values('reading')
+
+            torso_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='torso'
+            ).values('reading')
+
+            shoulders_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='shoulders'
+            ).values('reading')
+
+            # Aggregate by day
+            daily_data = queryset.annotate(
+                day=TruncDay('timestamp')
+            ).values('day').annotate(
+                overall=Avg('overall_score')
+            ).order_by('day')
+
+            # Format for frontend
+            chart_data = []
+            for entry in daily_data:
+                day_str = entry['day'].strftime('%a')  # Short day name (Mon, Tue, etc.)
+
+                # Find component scores for this day
+                day_neck = neck_scores.filter(
+                    reading__timestamp__date=entry['day'].date()
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                day_torso = torso_scores.filter(
+                    reading__timestamp__date=entry['day'].date()
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                day_shoulders = shoulders_scores.filter(
+                    reading__timestamp__date=entry['day'].date()
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                chart_data.append({
+                    'time_marker': day_str,
+                    'overall': round(entry['overall']),
+                    'neck': round(day_neck),
+                    'torso': round(day_torso),
+                    'shoulders': round(day_shoulders)
+                })
+
+            return Response(chart_data)
+
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["posture-data-user"],
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Start date for monthly range (default: 4 weeks ago)",
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="End date for monthly range (default: today)",
+            ),
+        ],
+        responses={200: PostureChartDataSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='monthly-chart')
+    def monthly_chart(self, request, *args, **kwargs):
+        """Return weekly aggregated data for a month for charting."""
+        try:
+            device = self.get_device()
+
+            # Get date range from query params or use last 4 weeks
+            start_date_str = request.query_params.get('start_date')
+            end_date_str = request.query_params.get('end_date')
+
+            today = datetime.now().date()
+            if start_date_str:
+                start_date = parse_date(start_date_str)
+                if not start_date:
+                    raise ValidationError({"start_date": f"Invalid date format: {start_date_str}. Use YYYY-MM-DD."})
+            else:
+                start_date = today - timedelta(weeks=4)
+
+            if end_date_str:
+                end_date = parse_date(end_date_str)
+                if not end_date:
+                    raise ValidationError({"end_date": f"Invalid date format: {end_date_str}. Use YYYY-MM-DD."})
+            else:
+                end_date = today
+
+            if start_date > end_date:
+                raise ValidationError({"error": "'start_date' cannot be after 'end_date'"})
+
+            # Get base queryset for the date range
+            queryset = PostureReading.objects.filter(
+                device=device,
+                timestamp__date__range=(start_date, end_date)
+            )
+
+            # Get component scores by type
+            neck_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='neck'
+            ).values('reading')
+
+            torso_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='torso'
+            ).values('reading')
+
+            shoulders_scores = PostureComponent.objects.filter(
+                reading__in=queryset,
+                component_type='shoulders'
+            ).values('reading')
+
+            # Aggregate by week
+            weekly_data = queryset.annotate(
+                week=TruncWeek('timestamp')
+            ).values('week').annotate(
+                overall=Avg('overall_score')
+            ).order_by('week')
+
+            # Format for frontend
+            chart_data = []
+            for i, entry in enumerate(weekly_data):
+                week_str = f"Week {i + 1}"
+                week_date = entry['week'].date()
+
+                # Find component scores for this week
+                week_neck = neck_scores.filter(
+                    reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                week_torso = torso_scores.filter(
+                    reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                week_shoulders = shoulders_scores.filter(
+                    reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
+                ).aggregate(avg=Avg('score'))['avg'] or 0
+
+                chart_data.append({
+                    'time_marker': week_str,
+                    'overall': round(entry['overall']),
+                    'neck': round(week_neck),
+                    'torso': round(week_torso),
+                    'shoulders': round(week_shoulders)
+                })
+
+            return Response(chart_data)
+
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
