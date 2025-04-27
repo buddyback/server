@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from posture.models import PostureReading
+
 from .models import Device
 from .serializers import DeviceClaimSerializer, DeviceSerializer
 

@@ -61,6 +61,7 @@ class PostureReadingSerializer(serializers.ModelSerializer):
 
 class PostureChartDataSerializer(serializers.Serializer):
     """Serializer for aggregated posture chart data"""
+
     time_marker = serializers.CharField()  # Could be hour, day, or week depending on view
     overall = serializers.IntegerField()
     neck = serializers.IntegerField()
