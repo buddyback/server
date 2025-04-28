@@ -20,7 +20,7 @@ from posture.serializers.device_posture_data_serializers import PostureChartData
         tags=["posture-data-user"],
         summary="List posture data for a device owned by the authenticated user",
         description="Returns posture data from a specific device if the authenticated user is its owner. "
-                    "Supports optional filtering by a specific date or a date range.",
+        "Supports optional filtering by a specific date or a date range.",
         parameters=[
             OpenApiParameter(
                 name="date",
@@ -205,23 +205,20 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # Find component scores for this hour
                 hour_neck = (
-                        neck_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))[
-                            "avg"]
-                        or 0
+                    neck_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 hour_torso = (
-                        torso_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))[
-                            "avg"]
-                        or 0
+                    torso_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 hour_shoulders = (
-                        shoulders_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(
-                            avg=Avg("score"))[
-                            "avg"
-                        ]
-                        or 0
+                    shoulders_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))[
+                        "avg"
+                    ]
+                    or 0
                 )
 
                 chart_data.append(
@@ -314,23 +311,20 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # Find component scores for this day
                 day_neck = (
-                        neck_scores.filter(reading__timestamp__date=entry["day"].date()).aggregate(avg=Avg("score"))[
-                            "avg"]
-                        or 0
+                    neck_scores.filter(reading__timestamp__date=entry["day"].date()).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 day_torso = (
-                        torso_scores.filter(reading__timestamp__date=entry["day"].date()).aggregate(avg=Avg("score"))[
-                            "avg"]
-                        or 0
+                    torso_scores.filter(reading__timestamp__date=entry["day"].date()).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 day_shoulders = (
-                        shoulders_scores.filter(reading__timestamp__date=entry["day"].date()).aggregate(
-                            avg=Avg("score"))[
-                            "avg"
-                        ]
-                        or 0
+                    shoulders_scores.filter(reading__timestamp__date=entry["day"].date()).aggregate(avg=Avg("score"))[
+                        "avg"
+                    ]
+                    or 0
                 )
 
                 chart_data.append(
@@ -424,24 +418,24 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # Find component scores for this week
                 week_neck = (
-                        neck_scores.filter(
-                            reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
-                        ).aggregate(avg=Avg("score"))["avg"]
-                        or 0
+                    neck_scores.filter(
+                        reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
+                    ).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 week_torso = (
-                        torso_scores.filter(
-                            reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
-                        ).aggregate(avg=Avg("score"))["avg"]
-                        or 0
+                    torso_scores.filter(
+                        reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
+                    ).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 week_shoulders = (
-                        shoulders_scores.filter(
-                            reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
-                        ).aggregate(avg=Avg("score"))["avg"]
-                        or 0
+                    shoulders_scores.filter(
+                        reading__timestamp__date__range=(week_date, week_date + timedelta(days=6))
+                    ).aggregate(avg=Avg("score"))["avg"]
+                    or 0
                 )
 
                 chart_data.append(

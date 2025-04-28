@@ -23,7 +23,7 @@ class IsDeviceOwner(permissions.BasePermission):
             return False
 
         # Get device_id from URL kwargs
-        device_id = view.kwargs.get('device_id')
+        device_id = view.kwargs.get("device_id")
         if not device_id:
             return False
 

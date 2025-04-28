@@ -21,8 +21,8 @@ class IsDeviceAuthenticated(permissions.BasePermission):
     create=extend_schema(
         tags=["posture-data-device"],
         description=(
-                "Submit posture data from a Raspberry Pi device. "
-                "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
+            "Submit posture data from a Raspberry Pi device. "
+            "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
         summary="Submit posture data",
         request=PostureReadingSerializer,

@@ -13,6 +13,7 @@ from devices.models import Device, Session
 
 class SessionStartView(APIView):
     """Start a new session for a device"""
+
     permission_classes = [IsAuthenticated, IsDeviceOwner]
 
     def put(self, request, device_id):
@@ -28,6 +29,7 @@ class SessionStartView(APIView):
 
 class SessionStopView(APIView):
     """Stop the active session for a device"""
+
     permission_classes = [IsAuthenticated, IsDeviceOwner]
 
     def put(self, request, device_id):
@@ -44,6 +46,7 @@ class SessionStopView(APIView):
 
 class SessionStatusView(APIView):
     """Check if a device has an active session"""
+
     permission_classes = [IsAuthenticated, IsDeviceOwner]
 
     def get(self, request, device_id):

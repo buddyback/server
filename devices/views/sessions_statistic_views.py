@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +13,7 @@ from devices.serializers.sessions_statistic_serializers import SessionStatistics
 
 class SessionStatisticsView(APIView):
     """Calculate and return session usage statistics for a device"""
+
     permission_classes = [IsAuthenticated, IsDeviceOwner]
 
     @extend_schema(
@@ -34,13 +35,13 @@ class SessionStatisticsView(APIView):
                 description="The unique identifier of the device",
                 required=True,
                 type=str,
-                location=OpenApiParameter.PATH
+                location=OpenApiParameter.PATH,
             )
         ],
         responses={
             200: SessionStatisticsResponseSerializer,
             403: {"description": "Permission denied - not the device owner"},
-            404: {"description": "Device not found"}
+            404: {"description": "Device not found"},
         },
         examples=[
             OpenApiExample(
@@ -52,14 +53,14 @@ class SessionStatisticsView(APIView):
                     "active_session": {
                         "start_time": "2025-04-28T10:00:00Z",
                         "current_duration_minutes": 45.5,
-                        "current_duration_hours": 0.76
+                        "current_duration_hours": 0.76,
                     },
                     "summary": {
                         "average_session_minutes": 32.5,
                         "total_sessions": 127,
                         "total_minutes": 4127.5,
                         "consistency_score": 78,
-                        "current_streak_days": 5
+                        "current_streak_days": 5,
                     },
                     "current_period": {
                         "today_minutes": 65.2,
@@ -67,16 +68,16 @@ class SessionStatisticsView(APIView):
                         "this_week_minutes": 175.5,
                         "this_week_sessions": 6,
                         "this_month_minutes": 850.3,
-                        "this_month_sessions": 26
+                        "this_month_sessions": 26,
                     },
                     "comparisons": {
                         "day_change_percent": 15.3,
                         "week_change_percent": -5.2,
-                        "month_change_percent": 12.8
-                    }
-                }
+                        "month_change_percent": 12.8,
+                    },
+                },
             )
-        ]
+        ],
     )
     def get(self, request, device_id):
         device = Device.objects.get(id=device_id)
@@ -98,9 +99,7 @@ class SessionStatisticsView(APIView):
         chart_data = self._generate_chart_data(all_completed_sessions, now)
 
         # Get consistency metrics
-        consistency_metrics = self._calculate_consistency_metrics(
-            all_completed_sessions, device, now
-        )
+        consistency_metrics = self._calculate_consistency_metrics(all_completed_sessions, device, now)
 
         # Calculate usage patterns
         usage_patterns = self._calculate_usage_patterns(all_completed_sessions)
@@ -115,7 +114,7 @@ class SessionStatisticsView(APIView):
                 "total_sessions": completed_sessions.count(),
                 "total_minutes": round(total_minutes, 1),
                 "consistency_score": consistency_metrics["consistency_score"],
-                "current_streak_days": consistency_metrics["current_streak"]
+                "current_streak_days": consistency_metrics["current_streak"],
             },
             "current_period": {
                 "today_minutes": round(period_stats["today_minutes"], 1),
@@ -123,18 +122,21 @@ class SessionStatisticsView(APIView):
                 "this_week_minutes": round(period_stats["this_week_minutes"], 1),
                 "this_week_sessions": len(period_stats["this_week_sessions"]),
                 "this_month_minutes": round(period_stats["this_month_minutes"], 1),
-                "this_month_sessions": len(period_stats["this_month_sessions"])
+                "this_month_sessions": len(period_stats["this_month_sessions"]),
             },
             "comparisons": {
-                "day_change_percent": round(period_stats["day_change"], 1)
-                if period_stats["day_change"] is not None else None,
-                "week_change_percent": round(period_stats["week_change"], 1)
-                if period_stats["week_change"] is not None else None,
-                "month_change_percent": round(period_stats["month_change"], 1)
-                if period_stats["month_change"] is not None else None,
+                "day_change_percent": (
+                    round(period_stats["day_change"], 1) if period_stats["day_change"] is not None else None
+                ),
+                "week_change_percent": (
+                    round(period_stats["week_change"], 1) if period_stats["week_change"] is not None else None
+                ),
+                "month_change_percent": (
+                    round(period_stats["month_change"], 1) if period_stats["month_change"] is not None else None
+                ),
             },
             "patterns": usage_patterns,
-            "charts": chart_data
+            "charts": chart_data,
         }
 
         return Response(response_data)
@@ -149,7 +151,7 @@ class SessionStatisticsView(APIView):
         return {
             "start_time": active_session.start_time,
             "current_duration_minutes": round(current_duration.total_seconds() / 60, 1),
-            "current_duration_hours": round(current_duration.total_seconds() / 3600, 2)
+            "current_duration_hours": round(current_duration.total_seconds() / 3600, 2),
         }
 
     def _get_total_minutes(self, sessions):
@@ -179,34 +181,42 @@ class SessionStatisticsView(APIView):
         yesterday_minutes = self._get_total_minutes(yesterday_sessions)
 
         # Get this week's sessions (from Monday to now)
-        this_week_sessions = [s for s in all_completed_sessions
-                              if s.start_time >= now - timedelta(days=now.weekday())]
+        this_week_sessions = [s for s in all_completed_sessions if s.start_time >= now - timedelta(days=now.weekday())]
         this_week_minutes = self._get_total_minutes(this_week_sessions)
 
         # Get last week's sessions
-        last_week_sessions = [s for s in all_completed_sessions
-                              if s.start_time >= now - timedelta(days=now.weekday() + 7) and
-                              s.start_time < now - timedelta(days=now.weekday())]
+        last_week_sessions = [
+            s
+            for s in all_completed_sessions
+            if s.start_time >= now - timedelta(days=now.weekday() + 7)
+            and s.start_time < now - timedelta(days=now.weekday())
+        ]
         last_week_minutes = self._get_total_minutes(last_week_sessions)
 
         # Get this month's sessions
-        this_month_sessions = [s for s in all_completed_sessions
-                               if s.start_time.month == now.month and s.start_time.year == now.year]
+        this_month_sessions = [
+            s for s in all_completed_sessions if s.start_time.month == now.month and s.start_time.year == now.year
+        ]
         this_month_minutes = self._get_total_minutes(this_month_sessions)
 
         # Get last month's sessions
         last_month = now.month - 1 if now.month > 1 else 12
         last_month_year = now.year if now.month > 1 else now.year - 1
-        last_month_sessions = [s for s in all_completed_sessions
-                               if s.start_time.month == last_month and s.start_time.year == last_month_year]
+        last_month_sessions = [
+            s
+            for s in all_completed_sessions
+            if s.start_time.month == last_month and s.start_time.year == last_month_year
+        ]
         last_month_minutes = self._get_total_minutes(last_month_sessions)
 
         # Calculate period comparisons
         day_change = ((today_minutes - yesterday_minutes) / yesterday_minutes * 100) if yesterday_minutes > 0 else None
-        week_change = ((
-                               this_week_minutes - last_week_minutes) / last_week_minutes * 100) if last_week_minutes > 0 else None
-        month_change = ((
-                                this_month_minutes - last_month_minutes) / last_month_minutes * 100) if last_month_minutes > 0 else None
+        week_change = (
+            ((this_week_minutes - last_week_minutes) / last_week_minutes * 100) if last_week_minutes > 0 else None
+        )
+        month_change = (
+            ((this_month_minutes - last_month_minutes) / last_month_minutes * 100) if last_month_minutes > 0 else None
+        )
 
         return {
             "today_sessions": today_sessions,
@@ -223,7 +233,7 @@ class SessionStatisticsView(APIView):
             "last_month_minutes": last_month_minutes,
             "day_change": day_change,
             "week_change": week_change,
-            "month_change": month_change
+            "month_change": month_change,
         }
 
     def _calculate_usage_patterns(self, all_completed_sessions):
@@ -243,11 +253,13 @@ class SessionStatisticsView(APIView):
         for weekday in range(7):
             if weekday in weekday_stats:
                 stats = weekday_stats[weekday]
-                weekday_patterns.append({
-                    "weekday": weekday_names[weekday],
-                    "count": stats["count"],
-                    "avg_minutes": round(stats["total_minutes"] / stats["count"], 1) if stats["count"] > 0 else 0
-                })
+                weekday_patterns.append(
+                    {
+                        "weekday": weekday_names[weekday],
+                        "count": stats["count"],
+                        "avg_minutes": round(stats["total_minutes"] / stats["count"], 1) if stats["count"] > 0 else 0,
+                    }
+                )
 
         # Calculate hourly patterns
         hourly_stats = {}
@@ -263,16 +275,15 @@ class SessionStatisticsView(APIView):
         for hour in range(24):
             if hour in hourly_stats:
                 stats = hourly_stats[hour]
-                hourly_patterns.append({
-                    "hour": hour,
-                    "count": stats["count"],
-                    "avg_minutes": round(stats["total_minutes"] / stats["count"], 1) if stats["count"] > 0 else 0
-                })
+                hourly_patterns.append(
+                    {
+                        "hour": hour,
+                        "count": stats["count"],
+                        "avg_minutes": round(stats["total_minutes"] / stats["count"], 1) if stats["count"] > 0 else 0,
+                    }
+                )
 
-        return {
-            "by_weekday": weekday_patterns,
-            "by_hour": hourly_patterns
-        }
+        return {"by_weekday": weekday_patterns, "by_hour": hourly_patterns}
 
     def _calculate_consistency_metrics(self, all_completed_sessions, device, now):
         """Calculate consistency score and current streak"""
@@ -292,10 +303,7 @@ class SessionStatisticsView(APIView):
                 else:
                     break
 
-        return {
-            "consistency_score": consistency_score,
-            "current_streak": current_streak
-        }
+        return {"consistency_score": consistency_score, "current_streak": current_streak}
 
     def _generate_chart_data(self, all_completed_sessions, now):
         """Generate time-based chart data"""
@@ -310,49 +318,51 @@ class SessionStatisticsView(APIView):
 
         formatted_daily = []
         for day, day_sessions in sorted(days_dict.items()):
-            formatted_daily.append({
-                "date": day.strftime('%Y-%m-%d'),
-                "sessions": len(day_sessions),
-                "minutes": round(self._get_total_minutes(day_sessions), 1)
-            })
+            formatted_daily.append(
+                {
+                    "date": day.strftime("%Y-%m-%d"),
+                    "sessions": len(day_sessions),
+                    "minutes": round(self._get_total_minutes(day_sessions), 1),
+                }
+            )
 
         # Group sessions by week for weekly stats (last 90 days)
         weeks_dict = {}
         for session in all_completed_sessions:
             if session.start_time >= now - timedelta(days=90):
                 # Calculate week start date (Monday)
-                week_start = (session.start_time.date() - timedelta(days=session.start_time.weekday()))
+                week_start = session.start_time.date() - timedelta(days=session.start_time.weekday())
                 if week_start not in weeks_dict:
                     weeks_dict[week_start] = []
                 weeks_dict[week_start].append(session)
 
         formatted_weekly = []
         for week_start, week_sessions in sorted(weeks_dict.items()):
-            formatted_weekly.append({
-                "week": week_start.strftime('%Y-%m-%d'),
-                "sessions": len(week_sessions),
-                "minutes": round(self._get_total_minutes(week_sessions), 1)
-            })
+            formatted_weekly.append(
+                {
+                    "week": week_start.strftime("%Y-%m-%d"),
+                    "sessions": len(week_sessions),
+                    "minutes": round(self._get_total_minutes(week_sessions), 1),
+                }
+            )
 
         # Group sessions by month for monthly stats (last 365 days)
         months_dict = {}
         for session in all_completed_sessions:
             if session.start_time >= now - timedelta(days=365):
-                month_key = session.start_time.strftime('%Y-%m')
+                month_key = session.start_time.strftime("%Y-%m")
                 if month_key not in months_dict:
                     months_dict[month_key] = []
                 months_dict[month_key].append(session)
 
         formatted_monthly = []
         for month, month_sessions in sorted(months_dict.items()):
-            formatted_monthly.append({
-                "month": month,
-                "sessions": len(month_sessions),
-                "minutes": round(self._get_total_minutes(month_sessions), 1)
-            })
+            formatted_monthly.append(
+                {
+                    "month": month,
+                    "sessions": len(month_sessions),
+                    "minutes": round(self._get_total_minutes(month_sessions), 1),
+                }
+            )
 
-        return {
-            "daily": formatted_daily,
-            "weekly": formatted_weekly,
-            "monthly": formatted_monthly
-        }
+        return {"daily": formatted_daily, "weekly": formatted_weekly, "monthly": formatted_monthly}
