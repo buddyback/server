@@ -39,7 +39,7 @@ class DeviceSerializer(serializers.ModelSerializer):
                 "name": "My Smart Device",
                 "sensitivity": 75,
                 "vibration_intensity": 50,
-                "has_active_session": False
+                "has_active_session": False,
             }
         }
 

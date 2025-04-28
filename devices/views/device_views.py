@@ -33,7 +33,7 @@ from posture.authentication import DeviceAPIKeyAuthentication
                     }
                 ],
             )
-        ]
+        ],
     ),
     retrieve=extend_schema(
         tags=["devices-user"],
@@ -53,9 +53,9 @@ from posture.authentication import DeviceAPIKeyAuthentication
                     "sensitivity": 50,
                     "vibration_intensity": 50,
                     "has_active_session": True,
-                }
+                },
             )
-        ]
+        ],
     ),
     update=extend_schema(
         tags=["devices-user"],
