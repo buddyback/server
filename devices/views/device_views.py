@@ -15,9 +15,47 @@ from posture.authentication import DeviceAPIKeyAuthentication
         tags=["devices-user"],
         description="List all devices owned by the current user",
         responses={200: DeviceSerializer(many=True)},
+        examples=[
+            OpenApiExample(
+                "Device List Example",
+                description="Example response for listing devices",
+                value=[
+                    {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "user": 1,
+                        "user_username": "john_doe",
+                        "name": "My Device",
+                        "registration_date": "2023-10-01T12:00:00Z",
+                        "is_active": True,
+                        "sensitivity": 50,
+                        "vibration_intensity": 50,
+                        "has_active_session": True,
+                    }
+                ],
+            )
+        ]
     ),
     retrieve=extend_schema(
-        tags=["devices-user"], description="Retrieve a specific device", responses={200: DeviceSerializer}
+        tags=["devices-user"],
+        description="Retrieve a specific device",
+        responses={200: DeviceSerializer},
+        examples=[
+            OpenApiExample(
+                "Device Detail Example",
+                description="Example response for a single device",
+                value={
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "user": 1,
+                    "user_username": "john_doe",
+                    "name": "My Device",
+                    "registration_date": "2023-10-01T12:00:00Z",
+                    "is_active": True,
+                    "sensitivity": 50,
+                    "vibration_intensity": 50,
+                    "has_active_session": True,
+                }
+            )
+        ]
     ),
     update=extend_schema(
         tags=["devices-user"],

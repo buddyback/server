@@ -6,6 +6,9 @@ from devices.models import Device
 
 class DeviceSerializer(serializers.ModelSerializer):
     user_username = serializers.ReadOnlyField(source="user.username")
+    has_active_session = serializers.SerializerMethodField(
+        help_text="Indicates whether the device has an active session"
+    )
 
     name = serializers.CharField(max_length=100, required=False, default="My Device")
     sensitivity = serializers.IntegerField(
@@ -27,10 +30,24 @@ class DeviceSerializer(serializers.ModelSerializer):
             "sensitivity",
             "vibration_intensity",
             "api_key",
+            "has_active_session",
         ]
-        read_only_fields = ["id", "user", "user_username", "registration_date", "is_active"]
+        read_only_fields = ["id", "user", "user_username", "registration_date", "is_active", "has_active_session"]
 
-        swagger_schema_fields = {"example": {"name": "My Smart Device", "sensitivity": 75, "vibration_intensity": 50}}
+        swagger_schema_fields = {
+            "example": {
+                "name": "My Smart Device",
+                "sensitivity": 75,
+                "vibration_intensity": 50,
+                "has_active_session": False
+            }
+        }
+
+    def get_has_active_session(self, obj):
+        """
+        Check if the device has an active session
+        """
+        return obj.sessions.filter(end_time__isnull=True).exists()
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
