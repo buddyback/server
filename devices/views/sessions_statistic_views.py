@@ -17,6 +17,7 @@ class SessionStatisticsView(APIView):
     permission_classes = [IsAuthenticated, IsDeviceOwner]
 
     @extend_schema(
+        tags=["device-sessions"],
         summary="Get device session statistics",
         description="""
         Returns comprehensive usage statistics for a specific device.

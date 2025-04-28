@@ -1,6 +1,7 @@
 # views.py
 
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +12,18 @@ from custom_permissions.custom_permissions import IsDeviceOwner
 from devices.models import Device, Session
 
 
+@extend_schema_view(
+    put=extend_schema(
+        description="Start a new session for a device",
+        summary="Start device session",
+        tags=["device-sessions"],
+        responses={
+            201: {"description": "Session started successfully"},
+            200: {"description": "Session already active"},
+            404: {"description": "Device not found"},
+        },
+    )
+)
 class SessionStartView(APIView):
     """Start a new session for a device"""
 
@@ -27,6 +40,17 @@ class SessionStartView(APIView):
         return Response({"message": "Session started"}, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(
+    put=extend_schema(
+        description="Stop the active session for a device",
+        summary="Stop device session",
+        tags=["device-sessions"],
+        responses={
+            200: {"description": "Session stopped successfully or no active session found"},
+            404: {"description": "Device not found"},
+        },
+    )
+)
 class SessionStopView(APIView):
     """Stop the active session for a device"""
 
@@ -44,6 +68,17 @@ class SessionStopView(APIView):
         return Response({"message": "Session stopped"}, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        description="Check if a device has an active session",
+        summary="Get device session status",
+        tags=["device-sessions"],
+        responses={
+            200: {"description": "Returns session active status"},
+            404: {"description": "Device not found"},
+        },
+    )
+)
 class SessionStatusView(APIView):
     """Check if a device has an active session"""
 
