@@ -4,19 +4,9 @@ from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from posture.models import PostureReading
-
-from .models import Device
-from .serializers import DeviceClaimSerializer, DeviceSerializer
-
-
-class IsAdminOrReadOnly(permissions.BasePermission):
-    def has_permission(self, request, view):
-        if request.user and request.user.is_staff:
-            return True
-        if view.action in ["list", "claim_device", "release_device", "retrieve", "update", "partial_update"]:
-            return request.user and request.user.is_authenticated
-        return False
+from custom_permissions.custom_permissions import IsAdminOrReadOnly
+from devices.models import Device
+from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer
 
 
 @extend_schema_view(
