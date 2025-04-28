@@ -64,3 +64,9 @@ class DeviceClaimSerializer(serializers.Serializer):
         if len(value.strip()) == 0:
             raise serializers.ValidationError(_("Device name cannot be empty"))
         return value
+
+
+class DeviceSettingsSerializer(serializers.Serializer):
+    sensitivity = serializers.IntegerField()
+    vibration_intensity = serializers.IntegerField()
+    has_active_session = serializers.BooleanField()

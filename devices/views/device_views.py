@@ -1,12 +1,12 @@
 from django.utils.translation import gettext_lazy as _
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from custom_permissions.custom_permissions import IsAdminOrReadOnly
 from devices.models import Device, Session
-from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer
+from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer, DeviceSettingsSerializer
 from posture.authentication import DeviceAPIKeyAuthentication
 
 
@@ -69,8 +69,41 @@ from posture.authentication import DeviceAPIKeyAuthentication
     ),
     device_settings=extend_schema(
         tags=["devices-api"],
-        description="Get device settings using device authentication",
-        responses={200: OpenApiResponse(description="Device settings retrieved successfully")},
+        description=(
+            "Get device settings including sensitivity, vibration intensity, and active status. "
+            "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
+        ),
+        summary="Get device settings",
+        responses={
+            200: DeviceSettingsSerializer,
+            401: OpenApiResponse(description="Authentication failed"),
+            403: OpenApiResponse(description="Device not active"),
+        },
+        examples=[
+            OpenApiExample(
+                name="Device Settings Example",
+                description="Example device settings response",
+                value={"sensitivity": 50, "vibration_intensity": 50, "has_active_session": True},
+                response_only=True,
+            )
+        ],
+        parameters=[
+            OpenApiParameter(
+                name="X-Device-ID",
+                location=OpenApiParameter.HEADER,
+                required=True,
+                type=str,
+                description="UUID of the device",
+            ),
+            OpenApiParameter(
+                name="X-API-KEY",
+                location=OpenApiParameter.HEADER,
+                required=True,
+                type=str,
+                description="API key associated with the device",
+            ),
+        ],
+        auth=[],
     ),
 )
 class DeviceViewSet(viewsets.ModelViewSet):
@@ -194,7 +227,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         data = {
             "sensitivity": device.sensitivity,
             "vibration_intensity": device.vibration_intensity,
-            "is_active": has_active_session,
+            "has_active_session": has_active_session,
         }
 
         return Response(data, status=status.HTTP_200_OK)
