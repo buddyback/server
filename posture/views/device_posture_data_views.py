@@ -1,7 +1,7 @@
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, viewsets
 
-from devices.models import Device
+from devices.models import Device, Session
 from posture.authentication import DeviceAPIKeyAuthentication  # custom auth
 from posture.models import PostureReading
 from posture.serializers.device_posture_data_serializers import PostureReadingSerializer
@@ -21,7 +21,7 @@ class IsDeviceAuthenticated(permissions.BasePermission):
     create=extend_schema(
         tags=["posture-data-device"],
         description=(
-            "Submit posture data from a Raspberry Pi device. "
+            "Submit posture data from a Raspberry Pi device. There must be an active session to send data to the server."
             "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
         summary="Submit posture data",
@@ -105,6 +105,18 @@ class PostureDataViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
     def perform_create(self, serializer):
         """
-        Automatically sets the authenticated device on new posture entries.
+        Ensure device has an active session before allowing posture data creation.
         """
-        serializer.save(device=self.request.user)
+
+        device = self.request.user
+
+        # Check if device has an active session
+        has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
+
+        if not has_active_session:
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("Device must have an active session to submit posture data.")
+
+        # If active session exists, proceed to save the posture reading
+        serializer.save(device=device)
