@@ -5,8 +5,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from custom_permissions.custom_permissions import IsAdminOrReadOnly
-from devices.models import Device
+from devices.models import Device, Session
 from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer
+from posture.authentication import DeviceAPIKeyAuthentication
 
 
 @extend_schema_view(
@@ -65,6 +66,11 @@ from devices.serializers.device_serializers import DeviceClaimSerializer, Device
         tags=["devices-admin"],
         description="List all unclaimed devices (admin only)",
         responses={200: DeviceSerializer(many=True)},
+    ),
+    device_settings=extend_schema(
+        tags=["devices-api"],
+        description="Get device settings using device authentication",
+        responses={200: OpenApiResponse(description="Device settings retrieved successfully")},
     ),
 )
 class DeviceViewSet(viewsets.ModelViewSet):
@@ -160,13 +166,35 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         return Response({"status": _("Device released successfully")}, status=status.HTTP_200_OK)
 
-    @extend_schema(
-        methods=["GET"],
-        description="List all unclaimed devices (admin only)",
-        responses={200: DeviceSerializer(many=True)},
-    )
     @action(detail=False, methods=["get"], url_path="unclaimed", permission_classes=[permissions.IsAdminUser])
     def unclaimed_devices(self, request):
         devices = Device.objects.filter(user__isnull=True, is_active=False)
         serializer = self.get_serializer(devices, many=True)
         return Response(serializer.data)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="settings",
+        authentication_classes=[DeviceAPIKeyAuthentication],
+        permission_classes=[permissions.AllowAny],
+    )
+    def device_settings(self, request):
+        # The authenticated device is available as request.user
+        # due to the DeviceAPIKeyAuthentication
+        device = request.user
+
+        if not isinstance(device, Device):
+            return Response({"error": _("Device authentication required")}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Check if there's an active session for this device
+        has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
+
+        # Return only the requested fields
+        data = {
+            "sensitivity": device.sensitivity,
+            "vibration_intensity": device.vibration_intensity,
+            "is_active": has_active_session,
+        }
+
+        return Response(data, status=status.HTTP_200_OK)

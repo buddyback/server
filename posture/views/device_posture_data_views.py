@@ -19,7 +19,7 @@ class IsDeviceAuthenticated(permissions.BasePermission):
 
 @extend_schema_view(
     create=extend_schema(
-        tags=["posture-data-device"],
+        tags=["devices-api"],
         description=(
             "Submit posture data from a Raspberry Pi device. There must be an active session to send data to the server."
             "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
