@@ -47,7 +47,7 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                             "component_type": "torso",
                             "is_correct": True,
                             "score": 90,
-                            "correction": "Maintain this upright position",
+                            "correction": "",
                         },
                         {
                             "component_type": "shoulders",
