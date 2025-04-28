@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('devices', '0005_alter_device_api_key'),
     ]
@@ -17,7 +16,8 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('start_time', models.DateTimeField(auto_now_add=True)),
                 ('end_time', models.DateTimeField(blank=True, null=True)),
-                ('device', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sessions', to='devices.device')),
+                ('device', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sessions',
+                                             to='devices.device')),
             ],
         ),
     ]

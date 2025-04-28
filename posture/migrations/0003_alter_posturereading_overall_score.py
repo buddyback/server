@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('posture', '0002_posturereading_posturecomponent_delete_posturedata_and_more'),
     ]
@@ -14,6 +13,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='posturereading',
             name='overall_score',
-            field=models.IntegerField(default=0, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(100)]),
+            field=models.IntegerField(default=0, validators=[django.core.validators.MinValueValidator(0),
+                                                             django.core.validators.MaxValueValidator(100)]),
         ),
     ]

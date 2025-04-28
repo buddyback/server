@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -20,7 +19,8 @@ class Migration(migrations.Migration):
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
                 ('correct_shoulder_position', models.BooleanField()),
                 ('correct_neck_position', models.BooleanField()),
-                ('device', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posture_data', to='devices.device')),
+                ('device', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posture_data',
+                                             to='devices.device')),
             ],
         ),
     ]

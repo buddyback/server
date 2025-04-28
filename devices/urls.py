@@ -4,8 +4,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from devices.views.device_views import DeviceViewSet
-from devices.views.sessions_statistic_views import SessionStatisticsView
 from devices.views.session_views import SessionStartView, SessionStopView, SessionStatusView
+from devices.views.sessions_statistic_views import SessionStatisticsView
 
 # Router for device viewset
 router = DefaultRouter()

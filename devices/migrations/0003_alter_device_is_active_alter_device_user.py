@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('devices', '0002_alter_device_id'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -21,6 +20,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='device',
             name='user',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='devices', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='devices', to=settings.AUTH_USER_MODEL),
         ),
     ]

@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('devices', '0005_alter_device_api_key'),
         ('posture', '0001_initial'),
@@ -18,8 +17,11 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
-                ('overall_score', models.IntegerField(validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(100)])),
-                ('device', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posture_readings', to='devices.device')),
+                ('overall_score', models.IntegerField(validators=[django.core.validators.MinValueValidator(0),
+                                                                  django.core.validators.MaxValueValidator(100)])),
+                ('device',
+                 models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posture_readings',
+                                   to='devices.device')),
             ],
             options={
                 'ordering': ['-timestamp'],
@@ -29,11 +31,14 @@ class Migration(migrations.Migration):
             name='PostureComponent',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('component_type', models.CharField(choices=[('neck', 'Neck Position'), ('torso', 'Torso Position'), ('shoulders', 'Shoulders Position')], max_length=10)),
+                ('component_type', models.CharField(choices=[('neck', 'Neck Position'), ('torso', 'Torso Position'),
+                                                             ('shoulders', 'Shoulders Position')], max_length=10)),
                 ('is_correct', models.BooleanField()),
-                ('score', models.IntegerField(validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(100)])),
+                ('score', models.IntegerField(validators=[django.core.validators.MinValueValidator(0),
+                                                          django.core.validators.MaxValueValidator(100)])),
                 ('correction', models.CharField(max_length=255)),
-                ('reading', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='components', to='posture.posturereading')),
+                ('reading', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='components',
+                                              to='posture.posturereading')),
             ],
         ),
         migrations.DeleteModel(

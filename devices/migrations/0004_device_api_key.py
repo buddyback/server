@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('devices', '0003_alter_device_is_active_alter_device_user'),
     ]

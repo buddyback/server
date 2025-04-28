@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -23,7 +22,8 @@ class Migration(migrations.Migration):
                 ('is_active', models.BooleanField(default=True)),
                 ('sensitivity', models.PositiveIntegerField(default=50.0)),
                 ('vibration_intensity', models.PositiveIntegerField(default=50.0)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='devices', to=settings.AUTH_USER_MODEL)),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='devices',
+                                           to=settings.AUTH_USER_MODEL)),
             ],
         ),
     ]

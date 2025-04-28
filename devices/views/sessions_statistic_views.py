@@ -204,9 +204,9 @@ class SessionStatisticsView(APIView):
         # Calculate period comparisons
         day_change = ((today_minutes - yesterday_minutes) / yesterday_minutes * 100) if yesterday_minutes > 0 else None
         week_change = ((
-                                   this_week_minutes - last_week_minutes) / last_week_minutes * 100) if last_week_minutes > 0 else None
+                               this_week_minutes - last_week_minutes) / last_week_minutes * 100) if last_week_minutes > 0 else None
         month_change = ((
-                                    this_month_minutes - last_month_minutes) / last_month_minutes * 100) if last_month_minutes > 0 else None
+                                this_month_minutes - last_month_minutes) / last_month_minutes * 100) if last_month_minutes > 0 else None
 
         return {
             "today_sessions": today_sessions,
