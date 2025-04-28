@@ -9,7 +9,7 @@ class PostureReading(models.Model):
 
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="posture_readings")
     timestamp = models.DateTimeField(auto_now_add=True)
-    overall_score = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)], default=0)
+    overall_score = models.IntegerField(validators=[MinValueValidator(0)], default=0)
 
     class Meta:
         ordering = ["-timestamp"]
@@ -42,7 +42,7 @@ class PostureComponent(models.Model):
     reading = models.ForeignKey(PostureReading, on_delete=models.CASCADE, related_name="components")
     component_type = models.CharField(max_length=10, choices=COMPONENT_TYPES)
     is_correct = models.BooleanField()
-    score = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)])
+    score = models.IntegerField(validators=[MinValueValidator(0)])
     correction = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
