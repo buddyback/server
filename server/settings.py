@@ -130,6 +130,8 @@ DJOSER = {
     "LOGIN_FIELD": "username",
     "SERIALIZERS": {},
     "USER_CREATE_PASSWORD_RETYPE": True,
+    "PASSWORD_RESET_CONFIRM_RETYPE": True,
+    "SET_PASSWORD_RETYPE": True,
     # Add permissions configuration
     "PERMISSIONS": {
         "user": ["rest_framework.permissions.IsAuthenticated"],
