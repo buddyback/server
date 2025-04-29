@@ -122,12 +122,23 @@ SIMPLE_JWT = {
 }
 
 DJOSER = {
+    # Your existing settings
     "PASSWORD_RESET_CONFIRM_URL": "#/password/reset/confirm/{uid}/{token}",
     "USERNAME_RESET_CONFIRM_URL": "#/username/reset/confirm/{uid}/{token}",
     "ACTIVATION_URL": "#/activate/{uid}/{token}",
     "SEND_ACTIVATION_EMAIL": False,
     "LOGIN_FIELD": "username",
     "SERIALIZERS": {},
+    "USER_CREATE_PASSWORD_RETYPE": True,
+
+    # Add permissions configuration
+    "PERMISSIONS": {
+        "user": ["rest_framework.permissions.IsAuthenticated"],
+        "user_list": ["rest_framework.permissions.IsAdminUser"],
+        "user_create": ["rest_framework.permissions.AllowAny"],
+        "user_delete": ["rest_framework.permissions.IsAdminUser"],
+        # Add more endpoint permissions as needed
+    }
 }
 
 REST_FRAMEWORK = {
