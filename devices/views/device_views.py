@@ -114,52 +114,16 @@ POLL_INTERVAL = 0.5  # Half a second between checks
         tags=["devices-api"],
         description=(
             "Get device settings including sensitivity, vibration intensity, and active status. "
+            "If the query parameters last_sensitivity, last_vibration_intensity, or last_session_status are provided, "
+            "this endpoint will use long polling to wait for changes. "
             "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
-        summary="Get device settings",
+        summary="Get device settings (with optional long polling)",
         responses={
             200: DeviceSettingsSerializer,
+            304: OpenApiResponse(description="No changes to device settings (long polling timeout)"),
             401: OpenApiResponse(description="Authentication failed"),
             403: OpenApiResponse(description="Device not active"),
-        },
-        examples=[
-            OpenApiExample(
-                name="Device Settings Example",
-                description="Example device settings response",
-                value={"sensitivity": 50, "vibration_intensity": 50, "has_active_session": True},
-                response_only=True,
-            )
-        ],
-        parameters=[
-            OpenApiParameter(
-                name="X-Device-ID",
-                location=OpenApiParameter.HEADER,
-                required=True,
-                type=str,
-                description="UUID of the device",
-            ),
-            OpenApiParameter(
-                name="X-API-KEY",
-                location=OpenApiParameter.HEADER,
-                required=True,
-                type=str,
-                description="API key associated with the device",
-            ),
-        ],
-        auth=[],
-    ),
-    poll_device_settings=extend_schema(
-        tags=["devices-api"],
-        description=(
-            "Long polling endpoint for device settings. Holds the connection open until settings change or timeout. "
-            "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
-        ),
-        summary="Long poll device settings",
-        responses={
-            200: DeviceSettingsSerializer,
-            401: OpenApiResponse(description="Authentication failed"),
-            403: OpenApiResponse(description="Device not active"),
-            304: OpenApiResponse(description="No changes to device settings"),
         },
         examples=[
             OpenApiExample(
@@ -189,21 +153,21 @@ POLL_INTERVAL = 0.5  # Half a second between checks
                 location=OpenApiParameter.QUERY,
                 required=False,
                 type=int,
-                description="Last known sensitivity value (to detect changes)",
+                description="Last known sensitivity value (to enable long polling and detect changes)",
             ),
             OpenApiParameter(
                 name="last_vibration_intensity",
                 location=OpenApiParameter.QUERY,
                 required=False,
                 type=int,
-                description="Last known vibration intensity (to detect changes)",
+                description="Last known vibration intensity (to enable long polling and detect changes)",
             ),
             OpenApiParameter(
                 name="last_session_status",
                 location=OpenApiParameter.QUERY,
                 required=False,
                 type=bool,
-                description="Last known session status (active or not)",
+                description="Last known session status (active or not, to enable long polling and detect changes)",
             ),
         ],
         auth=[],
@@ -317,40 +281,10 @@ class DeviceViewSet(viewsets.ModelViewSet):
         permission_classes=[permissions.AllowAny],
     )
     def device_settings(self, request):
-        # The authenticated device is available as request.user
-        # due to the DeviceAPIKeyAuthentication
-        device = request.user
-
-        if not isinstance(device, Device):
-            return Response({"error": _("Device authentication required")}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Check if there's an active session for this device
-        has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
-
-        # Update the last seen time
-        device.last_seen = now()
-        device.save()
-
-        # Return only the requested fields
-        data = {
-            "sensitivity": device.sensitivity,
-            "vibration_intensity": device.vibration_intensity,
-            "has_active_session": has_active_session,
-        }
-
-        return Response(data, status=status.HTTP_200_OK)
-        
-    @action(
-        detail=False,
-        methods=["get"],
-        url_path="settings/poll",
-        authentication_classes=[DeviceAPIKeyAuthentication],
-        permission_classes=[permissions.AllowAny],
-    )
-    def poll_device_settings(self, request):
         """
-        Long polling endpoint for device settings.
-        Holds the connection open until device settings change or timeout occurs.
+        Get device settings including sensitivity, vibration intensity, and active status.
+        If the query parameters last_sensitivity, last_vibration_intensity, or last_session_status are provided,
+        this endpoint will use long polling to wait for changes.
         """
         device = request.user
 
@@ -376,22 +310,32 @@ class DeviceViewSet(viewsets.ModelViewSet):
         device.last_seen = now()
         device.save(update_fields=['last_seen'])
 
+        # If no long polling parameters are provided, return current settings immediately
+        if last_sensitivity is None and last_vibration_intensity is None and last_session_status is None:
+            has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
+            data = {
+                "sensitivity": device.sensitivity,
+                "vibration_intensity": device.vibration_intensity,
+                "has_active_session": has_active_session,
+            }
+            return Response(data, status=status.HTTP_200_OK)
+
         # Keep checking for changes until timeout
         start_time = time.time()
         while time.time() - start_time < LONG_POLL_TIMEOUT:
             # Refresh device data from database to get latest settings
             device.refresh_from_db()
-            
+
             # Check if there's an active session for this device
             has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
-            
+
             # Check if any settings have changed
             settings_changed = (
                 (last_sensitivity is not None and device.sensitivity != last_sensitivity) or
                 (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity) or
                 (last_session_status is not None and has_active_session != last_session_status)
             )
-            
+
             if settings_changed:
                 # Return updated settings
                 data = {
@@ -400,9 +344,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
                     "has_active_session": has_active_session,
                 }
                 return Response(data, status=status.HTTP_200_OK)
-            
+
             # Wait before checking again to reduce database load
             time.sleep(POLL_INTERVAL)
-        
+
         # If we reach here, it means timeout occurred with no changes
         return Response(status=status.HTTP_304_NOT_MODIFIED)
