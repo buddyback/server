@@ -130,7 +130,6 @@ DJOSER = {
     "LOGIN_FIELD": "username",
     "SERIALIZERS": {},
     "USER_CREATE_PASSWORD_RETYPE": True,
-
     # Add permissions configuration
     "PERMISSIONS": {
         "user": ["rest_framework.permissions.IsAuthenticated"],
@@ -138,7 +137,7 @@ DJOSER = {
         "user_create": ["rest_framework.permissions.AllowAny"],
         "user_delete": ["rest_framework.permissions.IsAdminUser"],
         # Add more endpoint permissions as needed
-    }
+    },
 }
 
 REST_FRAMEWORK = {
