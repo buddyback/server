@@ -31,8 +31,18 @@ class DeviceSerializer(serializers.ModelSerializer):
             "vibration_intensity",
             "api_key",
             "has_active_session",
+            "last_seen",
         ]
-        read_only_fields = ["id", "user", "user_username", "registration_date", "is_active", "has_active_session"]
+        read_only_fields = [
+            "id",
+            "user",
+            "user_username",
+            "registration_date",
+            "is_active",
+            "has_active_session",
+            "api_key",
+            "last_seen",
+        ]
 
         swagger_schema_fields = {
             "example": {
@@ -40,6 +50,7 @@ class DeviceSerializer(serializers.ModelSerializer):
                 "sensitivity": 75,
                 "vibration_intensity": 50,
                 "has_active_session": False,
+                "last_seen": "2023-10-01T12:00:00Z",
             }
         }
 

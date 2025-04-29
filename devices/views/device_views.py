@@ -1,3 +1,4 @@
+from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import filters, permissions, status, viewsets
@@ -261,6 +262,10 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         # Check if there's an active session for this device
         has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
+
+        # Update the last seen time
+        device.last_seen = now()
+        device.save()
 
         # Return only the requested fields
         data = {

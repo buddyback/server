@@ -1,7 +1,7 @@
 # views.py
 
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
@@ -89,3 +89,33 @@ class SessionStatusView(APIView):
 
         is_active = device.sessions.filter(end_time__isnull=True).exists()
         return Response({"session_active": is_active})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        description="Check if a device is alive based on its last seen timestamp",
+        summary="Check device alive status",
+        tags=["device-sessions"],
+        responses={
+            200: {"description": "Returns device alive status"},
+            404: {"description": "Device not found"},
+        },
+        examples=[
+            OpenApiExample("Alive Example", value={"is_alive": True}),
+        ],
+    )
+)
+class IsDeviceAlive(APIView):
+    """
+    Check if a device is alive based on its last seen timestamp.
+    """
+
+    permission_classes = [IsAuthenticated, IsDeviceOwner]
+
+    def get(self, request, device_id):
+        device = get_object_or_404(Device, id=device_id)
+
+        # Check if the device is alive
+        is_alive = device.last_seen and (timezone.now() - device.last_seen).total_seconds() < 5
+
+        return Response({"is_alive": is_alive})
