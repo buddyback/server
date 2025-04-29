@@ -227,6 +227,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
             return Response({"error": _("Device not found or not owned by you.")}, status=status.HTTP_404_NOT_FOUND)
 
         device.posture_readings.all().delete()
+        device.sessions.all().delete()
 
         device.user = None
         device.name = "My Device"  # Reset to default name
