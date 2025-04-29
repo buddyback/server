@@ -3,19 +3,14 @@ FROM python:3.12
 # Set the working directory in the container to /app
 WORKDIR /app
 
-# Add the current directory contents into the container at /app
-ADD . /app
-
-# RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 libx264-dev -y
-
-# Upgrade pip
-# RUN pip install --upgrade pip
-
-# Install faiss-cpu
-#RUN #pip install faiss-cpu
+# Copy requirements file first to leverage Docker cache
+COPY requirements.txt /app/
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Add the rest of the current directory contents into the container at /app
+COPY . /app
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
