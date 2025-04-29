@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-twj_7eei+txf38x%w&1&h3m4#+8f1gtuepu$34p7b%q!=k)-k-"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = getenv("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
@@ -186,7 +186,7 @@ WSGI_APPLICATION = "server.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(getenv("DB_PATH", BASE_DIR / "db.sqlite3")),
+        "NAME": "/data/db.sqlite3" if not DEBUG else BASE_DIR / "db.sqlite3",
     }
 }
 
