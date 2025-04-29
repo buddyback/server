@@ -54,8 +54,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Adding cache support to speed up builds
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.USER }}/${{ env.IMAGE_NAME }}:latest
-          cache-to: type=inline
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.USER }}/${{ env.IMAGE_NAME }}:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.USER }}/${{ env.IMAGE_NAME }}:cache,mode=max
 
       - name: Call webhook
         run: curl -X POST ${{secrets.DEPLOY_WEBHOOK}}
