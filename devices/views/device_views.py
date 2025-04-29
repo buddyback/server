@@ -1,3 +1,4 @@
+import time
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
@@ -10,6 +11,9 @@ from devices.models import Device, Session
 from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer, DeviceSettingsSerializer
 from posture.authentication import DeviceAPIKeyAuthentication
 
+# Long polling timeout in seconds
+LONG_POLL_TIMEOUT = 30
+POLL_INTERVAL = 0.5  # Half a second between checks
 
 @extend_schema_view(
     list=extend_schema(
@@ -140,6 +144,66 @@ from posture.authentication import DeviceAPIKeyAuthentication
                 required=True,
                 type=str,
                 description="API key associated with the device",
+            ),
+        ],
+        auth=[],
+    ),
+    poll_device_settings=extend_schema(
+        tags=["devices-api"],
+        description=(
+            "Long polling endpoint for device settings. Holds the connection open until settings change or timeout. "
+            "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
+        ),
+        summary="Long poll device settings",
+        responses={
+            200: DeviceSettingsSerializer,
+            401: OpenApiResponse(description="Authentication failed"),
+            403: OpenApiResponse(description="Device not active"),
+            304: OpenApiResponse(description="No changes to device settings"),
+        },
+        examples=[
+            OpenApiExample(
+                name="Device Settings Example",
+                description="Example device settings response",
+                value={"sensitivity": 50, "vibration_intensity": 50, "has_active_session": True},
+                response_only=True,
+            )
+        ],
+        parameters=[
+            OpenApiParameter(
+                name="X-Device-ID",
+                location=OpenApiParameter.HEADER,
+                required=True,
+                type=str,
+                description="UUID of the device",
+            ),
+            OpenApiParameter(
+                name="X-API-KEY",
+                location=OpenApiParameter.HEADER,
+                required=True,
+                type=str,
+                description="API key associated with the device",
+            ),
+            OpenApiParameter(
+                name="last_sensitivity",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                type=int,
+                description="Last known sensitivity value (to detect changes)",
+            ),
+            OpenApiParameter(
+                name="last_vibration_intensity",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                type=int,
+                description="Last known vibration intensity (to detect changes)",
+            ),
+            OpenApiParameter(
+                name="last_session_status",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                type=bool,
+                description="Last known session status (active or not)",
             ),
         ],
         auth=[],
@@ -275,3 +339,70 @@ class DeviceViewSet(viewsets.ModelViewSet):
         }
 
         return Response(data, status=status.HTTP_200_OK)
+        
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="settings/poll",
+        authentication_classes=[DeviceAPIKeyAuthentication],
+        permission_classes=[permissions.AllowAny],
+    )
+    def poll_device_settings(self, request):
+        """
+        Long polling endpoint for device settings.
+        Holds the connection open until device settings change or timeout occurs.
+        """
+        device = request.user
+
+        if not isinstance(device, Device):
+            return Response({"error": _("Device authentication required")}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Parse last known values from query parameters
+        try:
+            last_sensitivity = int(request.query_params.get('last_sensitivity', None))
+        except (TypeError, ValueError):
+            last_sensitivity = None
+
+        try:
+            last_vibration_intensity = int(request.query_params.get('last_vibration_intensity', None))
+        except (TypeError, ValueError):
+            last_vibration_intensity = None
+
+        last_session_status = request.query_params.get('last_session_status', None)
+        if last_session_status is not None:
+            last_session_status = last_session_status.lower() == 'true'
+
+        # Update last_seen timestamp
+        device.last_seen = now()
+        device.save(update_fields=['last_seen'])
+
+        # Keep checking for changes until timeout
+        start_time = time.time()
+        while time.time() - start_time < LONG_POLL_TIMEOUT:
+            # Refresh device data from database to get latest settings
+            device.refresh_from_db()
+            
+            # Check if there's an active session for this device
+            has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
+            
+            # Check if any settings have changed
+            settings_changed = (
+                (last_sensitivity is not None and device.sensitivity != last_sensitivity) or
+                (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity) or
+                (last_session_status is not None and has_active_session != last_session_status)
+            )
+            
+            if settings_changed:
+                # Return updated settings
+                data = {
+                    "sensitivity": device.sensitivity,
+                    "vibration_intensity": device.vibration_intensity,
+                    "has_active_session": has_active_session,
+                }
+                return Response(data, status=status.HTTP_200_OK)
+            
+            # Wait before checking again to reduce database load
+            time.sleep(POLL_INTERVAL)
+        
+        # If we reach here, it means timeout occurred with no changes
+        return Response(status=status.HTTP_304_NOT_MODIFIED)
