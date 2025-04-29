@@ -1,4 +1,5 @@
 import time
+
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
@@ -14,6 +15,7 @@ from posture.authentication import DeviceAPIKeyAuthentication
 # Long polling timeout in seconds
 LONG_POLL_TIMEOUT = 30
 POLL_INTERVAL = 0.5  # Half a second between checks
+
 
 @extend_schema_view(
     list=extend_schema(
@@ -293,22 +295,22 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         # Parse last known values from query parameters
         try:
-            last_sensitivity = int(request.query_params.get('last_sensitivity', None))
+            last_sensitivity = int(request.query_params.get("last_sensitivity", None))
         except (TypeError, ValueError):
             last_sensitivity = None
 
         try:
-            last_vibration_intensity = int(request.query_params.get('last_vibration_intensity', None))
+            last_vibration_intensity = int(request.query_params.get("last_vibration_intensity", None))
         except (TypeError, ValueError):
             last_vibration_intensity = None
 
-        last_session_status = request.query_params.get('last_session_status', None)
+        last_session_status = request.query_params.get("last_session_status", None)
         if last_session_status is not None:
-            last_session_status = last_session_status.lower() == 'true'
+            last_session_status = last_session_status.lower() == "true"
 
         # Update last_seen timestamp
         device.last_seen = now()
-        device.save(update_fields=['last_seen'])
+        device.save(update_fields=["last_seen"])
 
         # If no long polling parameters are provided, return current settings immediately
         if last_sensitivity is None and last_vibration_intensity is None and last_session_status is None:
@@ -331,9 +333,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
             # Check if any settings have changed
             settings_changed = (
-                (last_sensitivity is not None and device.sensitivity != last_sensitivity) or
-                (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity) or
-                (last_session_status is not None and has_active_session != last_session_status)
+                (last_sensitivity is not None and device.sensitivity != last_sensitivity)
+                or (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity)
+                or (last_session_status is not None and has_active_session != last_session_status)
             )
 
             if settings_changed:
