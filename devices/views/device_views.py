@@ -186,6 +186,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
     ordering = ["-registration_date"]  # Default ordering
 
     def get_queryset(self):
+        if self.action == "destroy":
+            return Device.objects.filter(user__isnull=True, is_active=False)
         user = self.request.user
         return Device.objects.filter(user=user)
 
@@ -230,6 +232,16 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    def perform_destroy(self, instance):
+        # Only allow deletion if the user is an admin and the device is unclaimed
+        if self.request.user.is_staff and instance.user is None:
+            instance.delete()
+            return None
+        else:
+            return Response(
+                {"error": _("You do not have permission to delete this device.")}, status=status.HTTP_403_FORBIDDEN
+            )
+
     @action(detail=True, methods=["post"], url_path="claim", permission_classes=[permissions.IsAuthenticated])
     def claim_device(self, request, pk=None):
         try:
@@ -261,9 +273,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
         device.sessions.all().delete()
 
         device.user = None
-        device.name = "My Device"  # Reset to default name
-        device.sensitivity = 50  # Reset to default sensitivity
-        device.vibration_intensity = 50  # Reset to default vibration intensity
+        device.name = "My Device"
+        device.sensitivity = 50
+        device.vibration_intensity = 50
         device.is_active = False
         device.save()
 
