@@ -33,4 +33,6 @@ urlpatterns = [
     path("", include("devices.urls")),
     # POSTURE
     path("", include("posture.urls")),
+    # RANKS
+    path("", include("ranks.urls")),
 ]
