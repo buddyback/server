@@ -285,6 +285,6 @@ class IsDeviceAlive(APIView):
         device = get_object_or_404(Device, id=device_id)
 
         # Check if the device is alive
-        is_alive = device.last_seen and (timezone.now() - device.last_seen).total_seconds() < 5
+        is_alive = device.last_seen and (timezone.now() - device.last_seen).total_seconds() < 60
 
         return Response({"is_alive": is_alive})
