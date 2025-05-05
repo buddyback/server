@@ -23,4 +23,4 @@ class UserRankListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return UserRank.objects.filter(user=self.request.user).select_related('tier')
+        return UserRank.objects.filter(user=self.request.user).select_related("tier")

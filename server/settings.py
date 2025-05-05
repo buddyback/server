@@ -55,7 +55,7 @@ INSTALLED_APPS = [
     "devices.apps.DevicesConfig",
     "posture.apps.PostureConfig",
     "authentication.apps.AuthenticationConfig",
-    "ranks.apps.RanksConfig"
+    "ranks.apps.RanksConfig",
 ]
 
 ACCESS_TOKEN_LIFETIME = timedelta(days=9999)
