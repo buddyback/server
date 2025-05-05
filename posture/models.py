@@ -42,7 +42,6 @@ class PostureComponent(models.Model):
     reading = models.ForeignKey(PostureReading, on_delete=models.CASCADE, related_name="components")
     component_type = models.CharField(max_length=10, choices=COMPONENT_TYPES)
     score = models.IntegerField(validators=[MinValueValidator(0)])
-    raw_data = models.IntegerField()
 
     class Meta:
         indexes = [

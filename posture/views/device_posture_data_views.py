@@ -41,17 +41,14 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                         {
                             "component_type": "neck",
                             "score": 65,
-                            "raw_data": -342,
                         },
                         {
                             "component_type": "torso",
                             "score": 90,
-                            "raw_data": 23,
                         },
                         {
                             "component_type": "shoulders",
                             "score": 70,
-                            "raw_data": -11,
                         },
                     ]
                 },
