@@ -6,7 +6,7 @@ from posture.models import PostureComponent, PostureReading
 class PostureComponentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostureComponent
-        fields = ["component_type", "is_correct", "score", "correction"]
+        fields = ["component_type", "score", "raw_data"]
 
 
 class PostureReadingSerializer(serializers.ModelSerializer):

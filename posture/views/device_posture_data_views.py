@@ -1,5 +1,6 @@
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, viewsets
+from rest_framework.exceptions import PermissionDenied
 
 from devices.models import Device, Session
 from posture.authentication import DeviceAPIKeyAuthentication  # custom auth
@@ -39,21 +40,18 @@ class IsDeviceAuthenticated(permissions.BasePermission):
                     "components": [
                         {
                             "component_type": "neck",
-                            "is_correct": False,
                             "score": 65,
-                            "correction": "Adjust neck angle up slightly",
+                            "raw_data": -342,
                         },
                         {
                             "component_type": "torso",
-                            "is_correct": True,
                             "score": 90,
-                            "correction": "",
+                            "raw_data": 23,
                         },
                         {
                             "component_type": "shoulders",
-                            "is_correct": False,
                             "score": 70,
-                            "correction": "Pull shoulders back to reduce hunching",
+                            "raw_data": -11,
                         },
                     ]
                 },
@@ -114,8 +112,6 @@ class PostureDataViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         has_active_session = Session.objects.filter(device=device, end_time__isnull=True).exists()
 
         if not has_active_session:
-            from rest_framework.exceptions import PermissionDenied
-
             raise PermissionDenied("Device must have an active session to submit posture data.")
 
         # If active session exists, proceed to save the posture reading
