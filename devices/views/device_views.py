@@ -1,5 +1,7 @@
 import time
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
@@ -12,7 +14,7 @@ from devices.models import Device, Session
 from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer, DeviceSettingsSerializer
 from posture.authentication import DeviceAPIKeyAuthentication
 
-# Long polling timeout in seconds
+# Long polling timeout in seconds - kept for REST API fallback
 LONG_POLL_TIMEOUT = 30
 POLL_INTERVAL = 0.5  # Half a second between checks
 
@@ -116,8 +118,8 @@ POLL_INTERVAL = 0.5  # Half a second between checks
         tags=["devices-api"],
         description=(
             "Get device settings including sensitivity, vibration intensity, and active status. "
-            "If the query parameters last_sensitivity, last_vibration_intensity, or last_session_status are provided, "
-            "this endpoint will use long polling to wait for changes. "
+            "This endpoint now supports WebSockets for real-time updates at ws://domain/ws/device-settings/{device_id}/?api_key={api_key} "
+            "For backward compatibility, it also supports polling with query parameters. "
             "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
         summary="Get device settings (with optional long polling)",
@@ -216,6 +218,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
+        # Notify WebSocket clients about settings change
+        self.notify_settings_change(instance)
+
         return Response(serializer.data)
 
     def partial_update(self, request, *args, **kwargs):
@@ -229,6 +234,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        # Notify WebSocket clients about settings change
+        self.notify_settings_change(instance)
 
         return Response(serializer.data)
 
@@ -260,6 +268,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
         device.is_active = True
         device.save()
 
+        # Notify WebSocket clients about settings change
+        self.notify_settings_change(device)
+
         return Response(DeviceSerializer(device).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="release", permission_classes=[permissions.IsAuthenticated])
@@ -278,6 +289,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
         device.vibration_intensity = 50
         device.is_active = False
         device.save()
+
+        # Notify WebSocket clients about settings change
+        self.notify_settings_change(device)
 
         return Response({"status": _("Device released successfully")}, status=status.HTTP_200_OK)
 
@@ -299,6 +313,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
         Get device settings including sensitivity, vibration intensity, and active status.
         If the query parameters last_sensitivity, last_vibration_intensity, or last_session_status are provided,
         this endpoint will use long polling to wait for changes.
+
+        Note: WebSocket connection is now recommended at: ws://domain/ws/device-settings/{device_id}/?api_key={api_key}
         """
         device = request.user
 
@@ -364,3 +380,18 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         # If we reach here, it means timeout occurred with no changes
         return Response(status=status.HTTP_304_NOT_MODIFIED)
+    
+    def notify_settings_change(self, device):
+        """
+        Notify WebSocket clients about device setting changes
+        """
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            group_name = f"device_settings_{device.id}"
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    "type": "device_settings_update",
+                    "device_id": str(device.id),
+                },
+            )

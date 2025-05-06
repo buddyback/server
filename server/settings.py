@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "channels",
     "drf_spectacular",
     "rest_framework_simplejwt",
     "corsheaders",
@@ -57,6 +58,19 @@ INSTALLED_APPS = [
     "authentication.apps.AuthenticationConfig",
     "ranks.apps.RanksConfig",
 ]
+
+# Channels settings
+ASGI_APPLICATION = "server.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        # For production, use Redis as the backend
+        # "BACKEND": "channels_redis.core.RedisChannelLayer",
+        # "CONFIG": {
+        #     "hosts": [("127.0.0.1", 6379)],
+        # },
+    },
+}
 
 ACCESS_TOKEN_LIFETIME = timedelta(days=9999)
 REFRESH_TOKEN_LIFETIME = timedelta(days=9999)

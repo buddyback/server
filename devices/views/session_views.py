@@ -7,6 +7,8 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 from custom_permissions.custom_permissions import IsDeviceOwner
 from devices.models import Device, Session
@@ -39,7 +41,24 @@ class SessionStartView(APIView):
             return Response({"message": "Session already active"}, status=status.HTTP_200_OK)
 
         Session.objects.create(device=device)
+
+        # Notify WebSocket clients about session status change
+        self.notify_session_status_change(device)
+
         return Response({"message": "Session started"}, status=status.HTTP_201_CREATED)
+
+    def notify_session_status_change(self, device):
+        """Notify WebSocket clients about session status change"""
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            group_name = f"device_settings_{device.id}"
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    "type": "device_settings_update",
+                    "device_id": str(device.id),
+                },
+            )
 
 
 @extend_schema_view(
@@ -75,6 +94,9 @@ class SessionStopView(APIView):
 
         # Initialize user ranks if they don't exist
         self._initialize_user_ranks(user)
+
+        # Notify WebSocket clients about session status change
+        self.notify_session_status_change(device)
 
         return Response({"message": "Session stopped"}, status=status.HTTP_200_OK)
 
@@ -235,6 +257,19 @@ class SessionStopView(APIView):
                     UserRank.objects.get_or_create(
                         user=user, category=category_code, defaults={"tier": none_tier, "current_score": 0}
                     )
+
+    def notify_session_status_change(self, device):
+        """Notify WebSocket clients about session status change"""
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            group_name = f"device_settings_{device.id}"
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    "type": "device_settings_update",
+                    "device_id": str(device.id),
+                },
+            )
 
 
 @extend_schema_view(
