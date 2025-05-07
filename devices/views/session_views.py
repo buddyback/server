@@ -52,11 +52,14 @@ class SessionStartView(APIView):
         channel_layer = get_channel_layer()
         if channel_layer:
             group_name = f"device_settings_{device.id}"
+            # Send a more specific event type with session action info
             async_to_sync(channel_layer.group_send)(
                 group_name,
                 {
-                    "type": "device_settings_update",
+                    "type": "session_status_event",  # New event type
                     "device_id": str(device.id),
+                    "action": "start_session",  # Specific action for session start
+                    "has_active_session": True
                 },
             )
 
@@ -263,11 +266,14 @@ class SessionStopView(APIView):
         channel_layer = get_channel_layer()
         if channel_layer:
             group_name = f"device_settings_{device.id}"
+            # Send a more specific event type with session action info
             async_to_sync(channel_layer.group_send)(
                 group_name,
                 {
-                    "type": "device_settings_update",
+                    "type": "session_status_event",  # New event type
                     "device_id": str(device.id),
+                    "action": "stop_session",  # Specific action for session stop
+                    "has_active_session": False
                 },
             )
 
