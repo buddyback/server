@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.db.models import Avg
-from django.db.models.functions import TruncDay, TruncHour, TruncWeek
+from django.db.models.functions import TruncDay, TruncWeek
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
@@ -158,12 +158,18 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
                 location=OpenApiParameter.QUERY,
                 description="Date for which to get daily data (default: today)",
             ),
+            OpenApiParameter(
+                name="interval",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Aggregation interval in minutes (default: 1)",
+            ),
         ],
         responses={200: PostureChartDataSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="daily-chart")
     def daily_chart(self, request, *args, **kwargs):
-        """Return hourly aggregated data for a specific day for charting."""
+        """Return aggregated data for a specific day using configurable interval."""
         try:
             device = self.get_device()
 
@@ -176,58 +182,73 @@ class UserPostureDataByDeviceViewSet(viewsets.ReadOnlyModelViewSet):
             else:
                 chart_date = datetime.now().date()
 
-            # Get base queryset for the specific day
-            queryset = PostureReading.objects.filter(device=device, timestamp__date=chart_date)
+            # Get interval from query params (in minutes)
+            try:
+                interval = int(request.query_params.get("interval", 1))
+                if interval <= 0:
+                    raise ValidationError({"interval": "Interval must be a positive integer."})
+            except ValueError:
+                raise ValidationError({"interval": "Interval must be a valid integer."})
 
-            # Get component scores by type
-            neck_scores = PostureComponent.objects.filter(reading__in=queryset, component_type="neck").values("reading")
-
-            torso_scores = PostureComponent.objects.filter(reading__in=queryset, component_type="torso").values(
-                "reading"
+            # Get all readings for the day with their components in one efficient query
+            readings = (
+                PostureReading.objects.filter(device=device, timestamp__date=chart_date)
+                .prefetch_related("components")
+                .order_by("timestamp")
             )
 
-            shoulders_scores = PostureComponent.objects.filter(reading__in=queryset, component_type="shoulders").values(
-                "reading"
-            )
+            # Group readings by interval
+            interval_data = {}
 
-            # Aggregate by hour
-            hourly_data = (
-                queryset.annotate(hour=TruncHour("timestamp"))
-                .values("hour")
-                .annotate(overall=Avg("overall_score"))
-                .order_by("hour")
-            )
+            for reading in readings:
+                # Get interval timestamp (rounded down to nearest interval)
+                minutes_since_midnight = reading.timestamp.hour * 60 + reading.timestamp.minute
+                interval_group = minutes_since_midnight // interval
 
-            # Format for frontend
+                # Calculate the hour and minute for this interval
+                interval_hour = (interval_group * interval) // 60
+                interval_minute = (interval_group * interval) % 60
+                time_marker = f"{interval_hour:02d}:{interval_minute:02d}"
+
+                # Initialize interval data if needed
+                if time_marker not in interval_data:
+                    interval_data[time_marker] = {
+                        "overall_scores": [],
+                        "neck_scores": [],
+                        "torso_scores": [],
+                        "shoulders_scores": [],
+                    }
+
+                # Add overall score
+                interval_data[time_marker]["overall_scores"].append(reading.overall_score)
+
+                # Add component scores
+                for component in reading.components.all():
+                    if component.component_type == "neck":
+                        interval_data[time_marker]["neck_scores"].append(component.score)
+                    elif component.component_type == "torso":
+                        interval_data[time_marker]["torso_scores"].append(component.score)
+                    elif component.component_type == "shoulders":
+                        interval_data[time_marker]["shoulders_scores"].append(component.score)
+
+            # Calculate averages and format for frontend
             chart_data = []
-            for entry in hourly_data:
-                hour_str = entry["hour"].strftime("%H:%M")
-
-                # Find component scores for this hour
-                hour_neck = (
-                    neck_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))["avg"]
-                    or 0
-                )
-
-                hour_torso = (
-                    torso_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))["avg"]
-                    or 0
-                )
-
-                hour_shoulders = (
-                    shoulders_scores.filter(reading__timestamp__hour=entry["hour"].hour).aggregate(avg=Avg("score"))[
-                        "avg"
-                    ]
-                    or 0
+            for time_marker, data in sorted(interval_data.items()):
+                # Calculate averages or use 0 if no data
+                overall_avg = sum(data["overall_scores"]) / len(data["overall_scores"]) if data["overall_scores"] else 0
+                neck_avg = sum(data["neck_scores"]) / len(data["neck_scores"]) if data["neck_scores"] else 0
+                torso_avg = sum(data["torso_scores"]) / len(data["torso_scores"]) if data["torso_scores"] else 0
+                shoulders_avg = (
+                    sum(data["shoulders_scores"]) / len(data["shoulders_scores"]) if data["shoulders_scores"] else 0
                 )
 
                 chart_data.append(
                     {
-                        "time_marker": hour_str,
-                        "overall": round(entry["overall"]),
-                        "neck": round(hour_neck),
-                        "torso": round(hour_torso),
-                        "shoulders": round(hour_shoulders),
+                        "time_marker": time_marker,
+                        "overall": round(overall_avg),
+                        "neck": round(neck_avg),
+                        "torso": round(torso_avg),
+                        "shoulders": round(shoulders_avg),
                     }
                 )
 
