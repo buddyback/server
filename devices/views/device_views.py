@@ -19,7 +19,9 @@ LONG_POLL_TIMEOUT = 30
 POLL_INTERVAL = 0.5  # Half a second between checks
 
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 @extend_schema_view(
     list=extend_schema(
@@ -221,7 +223,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         logger.info(f"Sending WebSocket notification for device {instance.id} after update")
         self.notify_settings_change(instance)
 
-        if getattr(instance, '_prefetched_objects_cache', None):
+        if getattr(instance, "_prefetched_objects_cache", None):
             # If 'prefetch_related' has been applied to a queryset, we need to
             # forcibly invalidate the prefetch cache on the instance.
             instance._prefetched_objects_cache = {}
@@ -256,15 +258,17 @@ class DeviceViewSet(viewsets.ModelViewSet):
         Notify WebSocket clients about device setting changes
         """
         channel_layer = get_channel_layer()
-        
+
         # Add debugging
         if channel_layer:
             # Make sure we're using the device ID in the correct format - with hyphens
             device_id = str(device.id)  # This will include hyphens
             group_name = f"device_settings_{device_id}"
-            
+
             logger.info(f"Sending message to group: {group_name} with device ID: {device_id}")
-            logger.info(f"Device settings being updated: sensitivity={device.sensitivity}, vibration_intensity={device.vibration_intensity}")
+            logger.info(
+                f"Device settings being updated: sensitivity={device.sensitivity}, vibration_intensity={device.vibration_intensity}"
+            )
 
             try:
                 # Include more data in the event for debugging
@@ -276,8 +280,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
                         "timestamp": str(now()),
                         "settings": {
                             "sensitivity": device.sensitivity,
-                            "vibration_intensity": device.vibration_intensity
-                        }
+                            "vibration_intensity": device.vibration_intensity,
+                        },
                     },
                 )
                 logger.info(f"Successfully sent WebSocket notification to {group_name}")
@@ -406,9 +410,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
             # Check if any settings have changed
             settings_changed = (
-                    (last_sensitivity is not None and device.sensitivity != last_sensitivity)
-                    or (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity)
-                    or (last_session_status is not None and has_active_session != last_session_status)
+                (last_sensitivity is not None and device.sensitivity != last_sensitivity)
+                or (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity)
+                or (last_session_status is not None and has_active_session != last_session_status)
             )
 
             if settings_changed:

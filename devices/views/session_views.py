@@ -1,5 +1,7 @@
 # views.py
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import status
@@ -7,8 +9,6 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 
 from custom_permissions.custom_permissions import IsDeviceOwner
 from devices.models import Device, Session
@@ -59,7 +59,7 @@ class SessionStartView(APIView):
                     "type": "session_status_event",  # New event type
                     "device_id": str(device.id),
                     "action": "start_session",  # Specific action for session start
-                    "has_active_session": True
+                    "has_active_session": True,
                 },
             )
 
@@ -273,7 +273,7 @@ class SessionStopView(APIView):
                     "type": "session_status_event",  # New event type
                     "device_id": str(device.id),
                     "action": "stop_session",  # Specific action for session stop
-                    "has_active_session": False
+                    "has_active_session": False,
                 },
             )
 
