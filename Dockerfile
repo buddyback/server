@@ -15,5 +15,5 @@ COPY . /app
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Run the command to start uWSGI
-CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run the command to start Daphne instead of Django's runserver
+CMD ["daphne", "-p", "8000", "server.asgi:application"]
