@@ -1,8 +1,8 @@
-import asyncio
+from urllib.parse import parse_qs
 import json
+import asyncio
 import logging
 import uuid
-from urllib.parse import parse_qs
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -16,10 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class DeviceConsumer(AsyncWebsocketConsumer):
-    # Add these attributes to the class
-    heartbeat_interval = 30  # seconds
-    heartbeat_task = None
-
     async def connect(self):
         # Get device_id from URL route
         self.device_id = self.scope["url_route"]["kwargs"]["device_id"]
@@ -54,30 +50,13 @@ class DeviceConsumer(AsyncWebsocketConsumer):
 
         # Send initial device settings
         await self.send_device_settings()
-
-        # Start heartbeat
-        self.heartbeat_task = asyncio.create_task(self.send_heartbeat())
-
-    async def send_heartbeat(self):
-        """Send periodic heartbeats to verify connection is still alive"""
-        while True:
-            try:
-                await asyncio.sleep(self.heartbeat_interval)
-                print(f"⏱️ SENDING HEARTBEAT to device: {self.device_id}")  # Visible console indicator
-                await self.send(text_data=json.dumps({"type": "heartbeat"}))
-                logger.debug(f"Heartbeat sent to device: {self.device_id}")
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in heartbeat: {str(e)}")
-                break
+        
+        # Removed server-initiated heartbeat task
 
     async def disconnect(self, close_code):
         logger.info(f"WebSocket disconnecting for device: {self.device_id}, code: {close_code}")
 
-        # Cancel heartbeat task
-        if self.heartbeat_task:
-            self.heartbeat_task.cancel()
+        # Removed heartbeat task cancellation
 
         # Remove from device group
         if hasattr(self, "group_name"):
@@ -92,10 +71,12 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             message_type = data.get("type", "")
 
-            # Handle heartbeat responses
-            if message_type == "heartbeat_response":
-                logger.debug(f"Heartbeat response received from device: {self.device_id}")
+            # Handle client-initiated heartbeats
+            if message_type == "heartbeat":
+                logger.debug(f"Heartbeat received from device: {self.device_id}")
                 await self.update_last_seen()
+                # Send acknowledgment back to client
+                await self.send(text_data=json.dumps({"type": "heartbeat_ack"}))
                 return
 
             # Handle settings requests
@@ -258,16 +239,14 @@ class DeviceConsumer(AsyncWebsocketConsumer):
         # Only process if it's for this device
         if device_id == self.device_id:
             logger.info(f"Received session {action} event for device: {self.device_id}")
-
-            # Send the session event to the client
-            await self.send(
-                text_data=json.dumps(
-                    {"type": "session_status", "action": action, "has_active_session": has_active_session}
-                )
-            )
-
-            # Also refresh and send updated device settings
-            refresh_success = await self.refresh_device()
-            await self.send_device_settings()
+            
+            # Forward the session status to the device
+            await self.send(text_data=json.dumps({
+                "type": "session_status",
+                "action": action,
+                "has_active_session": has_active_session
+            }))
+            
+            logger.info(f"Sent session {action} event to device: {self.device_id}")
         else:
             logger.warning(f"Ignoring session event - device ID mismatch: expected {self.device_id}, got {device_id}")

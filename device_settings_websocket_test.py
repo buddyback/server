@@ -6,6 +6,8 @@ import time
 
 import websockets
 
+# Client heartbeat interval (in seconds)
+HEARTBEAT_INTERVAL = 30
 
 async def test_device_settings_websocket():
     """
@@ -28,13 +30,12 @@ async def test_device_settings_websocket():
 
     # Flag to track if we have an active session (necessary for sending posture data)
     has_active_session = False
-
-    # Create a global variable to store the websocket connection
-    websocket_connection = None
-
+    
+    # Flag to control heartbeat task
+    heartbeat_running = False
+    
     try:
         async with websockets.connect(uri) as websocket:
-            websocket_connection = websocket
             print("Connected to WebSocket server!")
 
             # First, receive the initial settings
@@ -57,7 +58,11 @@ async def test_device_settings_websocket():
             print(f"Requested settings: {json.loads(settings)}")
 
             # Start a background task for user commands
-            asyncio.create_task(process_user_commands(websocket))
+            user_task = asyncio.create_task(process_user_commands(websocket))
+            
+            # Start heartbeat task
+            heartbeat_running = True
+            heartbeat_task = asyncio.create_task(send_heartbeats(websocket, heartbeat_running))
 
             # Keep the connection open and listen for updates
             print("Listening for real-time updates (press Ctrl+C to stop)...")
@@ -78,9 +83,8 @@ async def test_device_settings_websocket():
                     data = json.loads(update)
 
                     # Handle different message types
-                    if data.get("type") == "heartbeat":
-                        print("❤️ Heartbeat received - sending response")
-                        await websocket.send(json.dumps({"type": "heartbeat_response"}))
+                    if data.get("type") == "heartbeat_ack":
+                        print("❤️ Heartbeat acknowledged by server")
 
                     elif data.get("type") == "session_status":
                         # Handle session status events
@@ -139,11 +143,37 @@ async def test_device_settings_websocket():
         print(f"Connection closed with code {e.code}: {e.reason}")
     except Exception as e:
         print(f"Error: {type(e).__name__}: {str(e)}")
+    finally:
+        # Stop heartbeat task
+        heartbeat_running = False
+        if 'heartbeat_task' in locals() and heartbeat_task:
+            heartbeat_task.cancel()
+        
+        # Stop user command task
+        if 'user_task' in locals() and user_task:
+            user_task.cancel()
+
+
+async def send_heartbeats(websocket, running):
+    """Periodically send heartbeats to the server"""
+    while running:
+        try:
+            # Sleep for the interval
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            
+            # Send heartbeat
+            print(f"❤️ SENDING HEARTBEAT at {time.strftime('%H:%M:%S')}")
+            await websocket.send(json.dumps({"type": "heartbeat"}))
+            
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Error sending heartbeat: {str(e)}")
+            break
 
 
 async def send_single_posture_reading(websocket):
     """Send a single posture reading with randomized scores"""
-
     # Generate somewhat realistic scores (weighted towards medium-good posture)
     neck_score = random.randint(50, 95)
     torso_score = random.randint(60, 95)
@@ -168,8 +198,6 @@ async def send_single_posture_reading(websocket):
 
 async def process_user_commands(websocket):
     """Process user commands from stdin while WebSocket is running"""
-    global auto_send_enabled, auto_send_interval
-
     while True:
         # Read command from stdin
         line = await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
@@ -178,14 +206,14 @@ async def process_user_commands(websocket):
         if command == "data":
             # Send a single posture data sample
             await send_single_posture_reading(websocket)
+        elif command == "heartbeat":
+            # Send a manual heartbeat
+            print(f"❤️ Sending manual heartbeat")
+            await websocket.send(json.dumps({"type": "heartbeat"}))
 
 
 if __name__ == "__main__":
-    # START THE SERVER WITH: daphne -p 8000 server.asgi:application
     try:
         asyncio.run(test_device_settings_websocket())
     except KeyboardInterrupt:
         print("\nTest script stopped by user")
-    finally:
-        # Make sure we stop auto-sending on exit
-        auto_send_enabled = False
