@@ -13,6 +13,7 @@ class Device(models.Model):
     is_active = models.BooleanField(default=False)
     sensitivity = models.PositiveIntegerField(default=50)
     vibration_intensity = models.PositiveIntegerField(default=50)
+    audio_intensity = models.PositiveIntegerField(default=50)
     api_key = models.CharField(max_length=255, unique=True, editable=False)
     last_seen = models.DateTimeField(null=True, blank=True)
 

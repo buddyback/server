@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
                         "is_active": True,
                         "sensitivity": 50,
                         "vibration_intensity": 50,
+                        "audio_intensity": 50,
                         "has_active_session": True,
                     }
                 ],
@@ -65,6 +66,7 @@ logger = logging.getLogger(__name__)
                     "is_active": True,
                     "sensitivity": 50,
                     "vibration_intensity": 50,
+                    "audio_intensity": 50,
                     "has_active_session": True,
                 },
             )
@@ -137,7 +139,7 @@ logger = logging.getLogger(__name__)
             OpenApiExample(
                 name="Device Settings Example",
                 description="Example device settings response",
-                value={"sensitivity": 50, "vibration_intensity": 50, "has_active_session": True},
+                value={"sensitivity": 50, "vibration_intensity": 50, "audio_intensity": 50, "has_active_session": True},
                 response_only=True,
             )
         ],
@@ -235,7 +237,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         if not request.user.is_staff and instance.user != request.user:
             return Response({"error": _("You do not own this device.")}, status=status.HTTP_403_FORBIDDEN)
 
-        allowed_fields = ["name", "sensitivity", "vibration_intensity"]
+        allowed_fields = ["name", "sensitivity", "vibration_intensity", "audio_intensity"]
         data = {key: value for key, value in request.data.items() if key in allowed_fields or request.user.is_staff}
 
         # Debug what's being updated
@@ -281,6 +283,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
                         "settings": {
                             "sensitivity": device.sensitivity,
                             "vibration_intensity": device.vibration_intensity,
+                            "audio_intensity": device.audio_intensity,
                         },
                     },
                 )
@@ -336,6 +339,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         device.name = "My Device"
         device.sensitivity = 50
         device.vibration_intensity = 50
+        device.audio_intensity = 50
         device.is_active = False
         device.save()
 
@@ -380,6 +384,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
             last_vibration_intensity = int(request.query_params.get("last_vibration_intensity", None))
         except (TypeError, ValueError):
             last_vibration_intensity = None
+
 
         last_session_status = request.query_params.get("last_session_status", None)
         if last_session_status is not None:

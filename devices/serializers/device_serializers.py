@@ -17,6 +17,9 @@ class DeviceSerializer(serializers.ModelSerializer):
     vibration_intensity = serializers.IntegerField(
         min_value=0, max_value=100, required=False, default=50, help_text="Device vibration intensity level (0-100)"
     )
+    audio_intensity = serializers.IntegerField(
+        min_value=0, max_value=100, required=False, default=50, help_text="Device audio intensity level (0-100)"
+    )
 
     class Meta:
         model = Device
@@ -29,6 +32,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "is_active",
             "sensitivity",
             "vibration_intensity",
+            "audio_intensity",
             "api_key",
             "has_active_session",
             "last_seen",
@@ -49,6 +53,7 @@ class DeviceSerializer(serializers.ModelSerializer):
                 "name": "My Smart Device",
                 "sensitivity": 75,
                 "vibration_intensity": 50,
+                "audio_intensity": 50,
                 "has_active_session": False,
                 "last_seen": "2023-10-01T12:00:00Z",
             }
@@ -80,6 +85,11 @@ class DeviceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(_("Vibration intensity must be between 0 and 100"))
         return value
 
+    def validate_audio_intensity(self, value):
+        if value < 0 or value > 100:
+            raise serializers.ValidationError(_("Audio intensity must be between 0 and 100"))
+        return value
+
 
 class DeviceClaimSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100, required=True, help_text="Name to assign to the device")
@@ -97,4 +107,5 @@ class DeviceClaimSerializer(serializers.Serializer):
 class DeviceSettingsSerializer(serializers.Serializer):
     sensitivity = serializers.IntegerField()
     vibration_intensity = serializers.IntegerField()
+    audio_intensity = serializers.IntegerField()
     has_active_session = serializers.BooleanField()
