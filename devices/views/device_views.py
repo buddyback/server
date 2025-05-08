@@ -222,7 +222,6 @@ class DeviceViewSet(viewsets.ModelViewSet):
         self.perform_update(serializer)
 
         # Notify WebSocket clients about settings change
-        logger.info(f"Sending WebSocket notification for device {instance.id} after update")
         self.notify_settings_change(instance)
 
         if getattr(instance, "_prefetched_objects_cache", None):
@@ -240,15 +239,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
         allowed_fields = ["name", "sensitivity", "vibration_intensity", "audio_intensity"]
         data = {key: value for key, value in request.data.items() if key in allowed_fields or request.user.is_staff}
 
-        # Debug what's being updated
-        logger.info(f"Updating device {instance.id} with data: {data}")
-
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-
-        # Debug notification
-        logger.info(f"Sending WebSocket notification for device {instance.id}")
 
         # Notify WebSocket clients about settings change
         self.notify_settings_change(instance)
@@ -267,11 +260,6 @@ class DeviceViewSet(viewsets.ModelViewSet):
             device_id = str(device.id)  # This will include hyphens
             group_name = f"device_settings_{device_id}"
 
-            logger.info(f"Sending message to group: {group_name} with device ID: {device_id}")
-            logger.info(
-                f"Device settings being updated: sensitivity={device.sensitivity}, vibration_intensity={device.vibration_intensity}"
-            )
-
             try:
                 # Include more data in the event for debugging
                 async_to_sync(channel_layer.group_send)(
@@ -287,7 +275,6 @@ class DeviceViewSet(viewsets.ModelViewSet):
                         },
                     },
                 )
-                logger.info(f"Successfully sent WebSocket notification to {group_name}")
             except Exception as e:
                 logger.error(f"Failed to send WebSocket notification: {str(e)}")
                 logger.exception("WebSocket notification error details:")
@@ -384,7 +371,6 @@ class DeviceViewSet(viewsets.ModelViewSet):
             last_vibration_intensity = int(request.query_params.get("last_vibration_intensity", None))
         except (TypeError, ValueError):
             last_vibration_intensity = None
-
 
         last_session_status = request.query_params.get("last_session_status", None)
         if last_session_status is not None:
