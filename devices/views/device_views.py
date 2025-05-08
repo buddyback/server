@@ -123,10 +123,10 @@ logger = logging.getLogger(__name__)
     device_settings=extend_schema(
         tags=["devices-api"],
         description=(
-                "Get device settings including sensitivity, vibration intensity, and active status. "
-                "This endpoint now supports WebSockets for real-time updates at ws://domain/ws/device-settings/{device_id}/?api_key={api_key} "
-                "For backward compatibility, it also supports polling with query parameters. "
-                "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
+            "Get device settings including sensitivity, vibration intensity, and active status. "
+            "This endpoint now supports WebSockets for real-time updates at ws://domain/ws/device-settings/{device_id}/?api_key={api_key} "
+            "For backward compatibility, it also supports polling with query parameters. "
+            "Requires `X-Device-ID` and `X-API-KEY` headers for authentication."
         ),
         summary="Get device settings (with optional long polling)",
         responses={
@@ -401,9 +401,9 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
             # Check if any settings have changed
             settings_changed = (
-                    (last_sensitivity is not None and device.sensitivity != last_sensitivity)
-                    or (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity)
-                    or (last_session_status is not None and has_active_session != last_session_status)
+                (last_sensitivity is not None and device.sensitivity != last_sensitivity)
+                or (last_vibration_intensity is not None and device.vibration_intensity != last_vibration_intensity)
+                or (last_session_status is not None and has_active_session != last_session_status)
             )
 
             if settings_changed:

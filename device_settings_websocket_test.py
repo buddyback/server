@@ -9,6 +9,7 @@ import websockets
 # Client heartbeat interval (in seconds)
 HEARTBEAT_INTERVAL = 30
 
+
 async def test_device_settings_websocket():
     """
     Test the device settings WebSocket connection.
@@ -16,8 +17,8 @@ async def test_device_settings_websocket():
     """
 
     # Use device ID with hyphens to match server format
-    device_id = "bb7eae68-2135-4f8a-b929-bb4f2e0f217c"  # With hyphens
-    api_key = "VzXkNlgfEcPhUl9-qLoyNW2ANYzTLu2iadVF_PfycOx1s7KL_eA-9Q89SaVF0jVY"
+    device_id = "0fd95512318f4ec88aa9f071d39ab18c"  # With hyphens
+    api_key = "LqvhDU4sb51uVMw5oMGpHE0xPuYhG47eF1onAI8mGyofgESLcU3eMeLqmMmKbU5i"
 
     # Construct the WebSocket URL with the device ID and API key
     uri = f"ws://127.0.0.1:8000/ws/device-connection/{device_id}/?api_key={api_key}"
@@ -30,10 +31,10 @@ async def test_device_settings_websocket():
 
     # Flag to track if we have an active session (necessary for sending posture data)
     has_active_session = False
-    
+
     # Flag to control heartbeat task
     heartbeat_running = False
-    
+
     try:
         async with websockets.connect(uri) as websocket:
             print("Connected to WebSocket server!")
@@ -59,7 +60,7 @@ async def test_device_settings_websocket():
 
             # Start a background task for user commands
             user_task = asyncio.create_task(process_user_commands(websocket))
-            
+
             # Start heartbeat task
             heartbeat_running = True
             heartbeat_task = asyncio.create_task(send_heartbeats(websocket, heartbeat_running))
@@ -146,11 +147,11 @@ async def test_device_settings_websocket():
     finally:
         # Stop heartbeat task
         heartbeat_running = False
-        if 'heartbeat_task' in locals() and heartbeat_task:
+        if "heartbeat_task" in locals() and heartbeat_task:
             heartbeat_task.cancel()
-        
+
         # Stop user command task
-        if 'user_task' in locals() and user_task:
+        if "user_task" in locals() and user_task:
             user_task.cancel()
 
 
@@ -160,11 +161,11 @@ async def send_heartbeats(websocket, running):
         try:
             # Sleep for the interval
             await asyncio.sleep(HEARTBEAT_INTERVAL)
-            
+
             # Send heartbeat
             print(f"❤️ SENDING HEARTBEAT at {time.strftime('%H:%M:%S')}")
             await websocket.send(json.dumps({"type": "heartbeat"}))
-            
+
         except asyncio.CancelledError:
             break
         except Exception as e:
