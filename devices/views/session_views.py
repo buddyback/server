@@ -1,5 +1,7 @@
 # views.py
 
+import logging
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.utils import timezone
@@ -15,9 +17,9 @@ from custom_permissions.custom_permissions import IsDeviceOwner
 from devices.models import Device, Session
 from posture.models import PostureReading
 from ranks.models import RankTier, UserRank
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 @extend_schema_view(
     put=extend_schema(
@@ -81,7 +83,6 @@ class SessionStartView(APIView):
             except Exception as e:
                 logger.error(f"Failed to send WebSocket notification: {str(e)}")
                 logger.exception("WebSocket notification error details:")
-
 
     def notify_session_status_change(self, device):
         """Notify WebSocket clients about session status change"""
@@ -344,6 +345,7 @@ class SessionStopView(APIView):
             except Exception as e:
                 logger.error(f"Failed to send WebSocket notification: {str(e)}")
                 logger.exception("WebSocket notification error details:")
+
 
 @extend_schema_view(
     get=extend_schema(
