@@ -3,6 +3,7 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.utils import timezone
+from django.utils.timezone import now
 from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import get_object_or_404
@@ -14,7 +15,9 @@ from custom_permissions.custom_permissions import IsDeviceOwner
 from devices.models import Device, Session
 from posture.models import PostureReading
 from ranks.models import RankTier, UserRank
+import logging
 
+logger = logging.getLogger(__name__)
 
 @extend_schema_view(
     put=extend_schema(
@@ -43,9 +46,42 @@ class SessionStartView(APIView):
         Session.objects.create(device=device)
 
         # Notify WebSocket clients about session status change
-        self.notify_session_status_change(device)
+        self.notify_settings_change(device)
 
         return Response({"message": "Session started"}, status=status.HTTP_201_CREATED)
+
+    def notify_settings_change(self, device):
+        """
+        Notify WebSocket clients about device setting changes
+        """
+        channel_layer = get_channel_layer()
+
+        # Add debugging
+        if channel_layer:
+            # Make sure we're using the device ID in the correct format - with hyphens
+            device_id = str(device.id)  # This will include hyphens
+            group_name = f"device_settings_{device_id}"
+
+            try:
+                # Include more data in the event for debugging
+                async_to_sync(channel_layer.group_send)(
+                    group_name,
+                    {
+                        "type": "device_settings_update",
+                        "device_id": device_id,
+                        "timestamp": str(now()),
+                        "settings": {
+                            "sensitivity": device.sensitivity,
+                            "vibration_intensity": device.vibration_intensity,
+                            "has_active_session": True,
+                            "audio_intensity": device.audio_intensity,
+                        },
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket notification: {str(e)}")
+                logger.exception("WebSocket notification error details:")
+
 
     def notify_session_status_change(self, device):
         """Notify WebSocket clients about session status change"""
@@ -99,7 +135,7 @@ class SessionStopView(APIView):
         self._initialize_user_ranks(user)
 
         # Notify WebSocket clients about session status change
-        self.notify_session_status_change(device)
+        self.notify_settings_change(device)
 
         return Response({"message": "Session stopped"}, status=status.HTTP_200_OK)
 
@@ -277,6 +313,37 @@ class SessionStopView(APIView):
                 },
             )
 
+    def notify_settings_change(self, device):
+        """
+        Notify WebSocket clients about device setting changes
+        """
+        channel_layer = get_channel_layer()
+
+        # Add debugging
+        if channel_layer:
+            # Make sure we're using the device ID in the correct format - with hyphens
+            device_id = str(device.id)  # This will include hyphens
+            group_name = f"device_settings_{device_id}"
+
+            try:
+                # Include more data in the event for debugging
+                async_to_sync(channel_layer.group_send)(
+                    group_name,
+                    {
+                        "type": "device_settings_update",
+                        "device_id": device_id,
+                        "timestamp": str(now()),
+                        "settings": {
+                            "sensitivity": device.sensitivity,
+                            "vibration_intensity": device.vibration_intensity,
+                            "audio_intensity": device.audio_intensity,
+                            "has_active_session": False,
+                        },
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket notification: {str(e)}")
+                logger.exception("WebSocket notification error details:")
 
 @extend_schema_view(
     get=extend_schema(
