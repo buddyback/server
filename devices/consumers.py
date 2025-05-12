@@ -1,8 +1,8 @@
-from urllib.parse import parse_qs
-import json
 import asyncio
+import json
 import logging
 import uuid
+from urllib.parse import parse_qs
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -50,7 +50,7 @@ class DeviceConsumer(AsyncWebsocketConsumer):
 
         # Send initial device settings
         await self.send_device_settings()
-        
+
         # Removed server-initiated heartbeat task
 
     async def disconnect(self, close_code):
@@ -160,8 +160,13 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             return settings
         except Exception as e:
             logger.error(f"Error getting device settings: {str(e)}")
-            return {"sensitivity": 0, "vibration_intensity": 0, "audio_intensity": 0, "has_active_session": False,
-                    "error": str(e)}
+            return {
+                "sensitivity": 0,
+                "vibration_intensity": 0,
+                "audio_intensity": 0,
+                "has_active_session": False,
+                "error": str(e),
+            }
 
     async def send_device_settings(self):
         """Send current device settings to the client"""
@@ -239,14 +244,14 @@ class DeviceConsumer(AsyncWebsocketConsumer):
         # Only process if it's for this device
         if device_id == self.device_id:
             logger.info(f"Received session {action} event for device: {self.device_id}")
-            
+
             # Forward the session status to the device
-            await self.send(text_data=json.dumps({
-                "type": "session_status",
-                "action": action,
-                "has_active_session": has_active_session
-            }))
-            
+            await self.send(
+                text_data=json.dumps(
+                    {"type": "session_status", "action": action, "has_active_session": has_active_session}
+                )
+            )
+
             logger.info(f"Sent session {action} event to device: {self.device_id}")
         else:
             logger.warning(f"Ignoring session event - device ID mismatch: expected {self.device_id}, got {device_id}")
