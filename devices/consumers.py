@@ -4,7 +4,7 @@ import uuid
 from datetime import timedelta
 from urllib.parse import parse_qs
 
-from asgiref.sync import sync_to_async
+from asgiref.sync import async_to_sync, sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db.models import Q
 from django.utils.timezone import now
@@ -67,8 +67,6 @@ class DeviceConsumer(AsyncWebsocketConsumer):
                 await self.send_device_settings()
             elif message_type == "posture_data":
                 await self.process_posture_data(data.get("data", {}))
-            elif message_type == "exit_idle_mode":
-                await self.exit_idle_mode(data.get("data", {}))
 
             # Update last_seen on any message
             await self.update_last_seen()
@@ -164,7 +162,8 @@ class DeviceConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def process_posture_data_sync(self, data):
         try:
-            if not Session.objects.filter(device=self.device, end_time__isnull=True).exists():
+            session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
+            if not session:
                 return False, "Device must have an active session to submit posture data"
 
             data["device"] = self.device.id
@@ -178,31 +177,56 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             return False, str(e)
 
     @sync_to_async
-    def exit_idle_mode_sync(self, data):
+    def exit_idle_mode(self):
         try:
             session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
-            if session:
+            if session and session.is_idle:
                 session.is_idle = False
                 session.save(update_fields=["is_idle"])
                 return True, None
-            return False, "No active session found"
+            return False, "Session is not idle or does not exist"
         except Exception as e:
             logger.error(f"Error exiting idle mode: {str(e)}")
             return False, str(e)
 
     async def process_posture_data(self, data):
+        # First check if we need to exit idle mode
+        idle_exited, _ = await self.exit_idle_mode()
+
+        # If we exited idle mode, send updated settings
+        if idle_exited:
+            await self.send_device_settings()
+            # Notify other clients about the settings change
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "device_settings_update",
+                    "device_id": str(self.device.id),
+                    "timestamp": str(now()),
+                    "settings": await self.get_device_settings(),
+                },
+            )
+
+        # Process the posture data regardless
         success, error = await self.process_posture_data_sync(data)
         response = {"type": "posture_data_response", "status": "success" if success else "error"}
         if not success:
             response["error"] = error
+
         await self.send(text_data=json.dumps(response))
 
-    async def exit_idle_mode(self, data):
-        success, error = await self.exit_idle_mode_sync(data)
-        response = {"type": "exit_idle_mode_response", "status": "success" if success else "error"}
-        if not success:
-            response["error"] = error
-        await self.send(text_data=json.dumps(response))
+    @sync_to_async
+    def stop_active_session(self):
+        try:
+            session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
+            if session:
+                session.end_time = now()
+                session.save(update_fields=["end_time"])
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error stopping active session: {str(e)}")
+            return False
 
     async def device_settings_update(self, event):
         if event.get("device_id") == self.device_id:
@@ -221,16 +245,3 @@ class DeviceConsumer(AsyncWebsocketConsumer):
                     }
                 )
             )
-
-    @sync_to_async
-    def stop_active_session(self):
-        try:
-            session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
-            if session:
-                session.end_time = now()
-                session.save(update_fields=["end_time"])
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error stopping active session: {str(e)}")
-            return False
