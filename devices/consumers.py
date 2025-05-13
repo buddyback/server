@@ -8,7 +8,6 @@ from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db.models import Q
 from django.utils.timezone import now
-from requests import session
 
 from devices.models import Device, Session
 from posture.serializers.device_posture_data_serializers import PostureReadingSerializer
@@ -83,18 +82,17 @@ class DeviceConsumer(AsyncWebsocketConsumer):
                 logger.debug(f"Heartbeat received from device: {self.device_id}")
                 await self.update_last_seen()
                 # Check if session should be stopped due to inactivity
-                # session_stopped = await self.stop_session_if_no_data_received_for_too_long()
-                # if session_stopped:
-                #     logger.info(f"Session stopped due to inactivity for device: {self.device_id}")
-                #     # Send updated settings to notify the device
-                #     await self.send_device_settings()
-                #     # Explicitly notify about the session status
-                #     await self.send(text_data=json.dumps({
-                #         "type": "session_status",
-                #         "action": "stop",
-                #         "has_active_session": False,
-                #         'is_idle': False
-                #     }))
+                session_is_idle = await self.set_idle_mode()
+                if session_is_idle:
+                    # Send updated settings to notify the device
+                    await self.send_device_settings()
+                    # Explicitly notify about the session status
+                    await self.send(text_data=json.dumps({
+                        "type": "session_status",
+                        "action": "stop",
+                        "has_active_session": False,
+                        'is_idle': False
+                    }))
                 return
 
             # Handle settings requests
@@ -130,21 +128,23 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             return False
 
     @sync_to_async
-    def stop_session_if_no_data_received_for_too_long(self):
+    def set_idle_mode(self):
         try:
             session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
 
             if session:
                 # Check if the last PostureReading is older than 60 minutes
-                time_threshold = now() - timedelta(seconds=60*60)
-
+                time_threshold = now() - timedelta(seconds=60) # TODO: Adjust this to 60 minutes
                 last_reading = self.device.posture_readings.order_by("-timestamp").first()
 
-                if last_reading and last_reading.timestamp > time_threshold:
-                    session.end_time = now()
-                    session.save(update_fields=["end_time"])
-                    logger.info(f"Session stopped for device: {self.device_id} due to inactivity")
+                if last_reading and last_reading.timestamp < time_threshold:
+                    print("Automatically set Idle mode for device:", self.device_id)
+                    # Stop the session if the last reading is older than 60 minutes
+                    session.is_idle = True
+                    session.save(update_fields=["is_idle"])
+                    logger.info(f"Session set to idle for device: {self.device_id}")
                     return True
+
                 return False
             return False
         except Exception as e:
