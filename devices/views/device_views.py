@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
                         "vibration_intensity": 50,
                         "audio_intensity": 50,
                         "has_active_session": True,
+                        "is_idle": False,
                     }
                 ],
             )
@@ -68,6 +69,7 @@ logger = logging.getLogger(__name__)
                     "vibration_intensity": 50,
                     "audio_intensity": 50,
                     "has_active_session": True,
+                    "is_idle": False,
                 },
             )
         ],

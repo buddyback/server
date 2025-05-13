@@ -29,10 +29,11 @@ class Device(models.Model):
 class Session(models.Model):
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="sessions")
     start_time = models.DateTimeField(auto_now_add=True)
+    is_idle = models.BooleanField(default=False)
     end_time = models.DateTimeField(null=True, blank=True)
 
     def is_active(self):
-        """Returns True if session is still ongoing"""
+        """Returns True if the session is still ongoing"""
         return self.end_time is None
 
     def duration(self):

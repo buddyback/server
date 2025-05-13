@@ -8,6 +8,7 @@ from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db.models import Q
 from django.utils.timezone import now
+from requests import session
 
 from devices.models import Device, Session
 from posture.serializers.device_posture_data_serializers import PostureReadingSerializer
@@ -82,17 +83,18 @@ class DeviceConsumer(AsyncWebsocketConsumer):
                 logger.debug(f"Heartbeat received from device: {self.device_id}")
                 await self.update_last_seen()
                 # Check if session should be stopped due to inactivity
-                session_stopped = await self.stop_session_if_no_data_received_for_too_long()
-                if session_stopped:
-                    logger.info(f"Session stopped due to inactivity for device: {self.device_id}")
-                    # Send updated settings to notify the device
-                    await self.send_device_settings()
-                    # Explicitly notify about the session status
-                    await self.send(text_data=json.dumps({
-                        "type": "session_status",
-                        "action": "stop",
-                        "has_active_session": False
-                    }))
+                # session_stopped = await self.stop_session_if_no_data_received_for_too_long()
+                # if session_stopped:
+                #     logger.info(f"Session stopped due to inactivity for device: {self.device_id}")
+                #     # Send updated settings to notify the device
+                #     await self.send_device_settings()
+                #     # Explicitly notify about the session status
+                #     await self.send(text_data=json.dumps({
+                #         "type": "session_status",
+                #         "action": "stop",
+                #         "has_active_session": False,
+                #         'is_idle': False
+                #     }))
                 return
 
             # Handle settings requests
@@ -185,13 +187,16 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             self.device.save(update_fields=["last_seen"])
 
             # Check if there's an active session
-            has_active_session = Session.objects.filter(device=self.device, end_time__isnull=True).exists()
+            session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
+            has_active_session = session is not None
+            is_idle = session.is_idle if session else False
 
             settings = {
                 "sensitivity": self.device.sensitivity,
                 "vibration_intensity": self.device.vibration_intensity,
                 "audio_intensity": self.device.audio_intensity,
                 "has_active_session": has_active_session,
+                "is_idle": is_idle,
             }
 
             logger.info(f"Device settings retrieved: {settings}")
@@ -203,6 +208,7 @@ class DeviceConsumer(AsyncWebsocketConsumer):
                 "vibration_intensity": 0,
                 "audio_intensity": 0,
                 "has_active_session": False,
+                "is_idle": False,
                 "error": str(e),
             }
 

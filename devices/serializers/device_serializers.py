@@ -9,6 +9,9 @@ class DeviceSerializer(serializers.ModelSerializer):
     has_active_session = serializers.SerializerMethodField(
         help_text="Indicates whether the device has an active session"
     )
+    is_idle = serializers.SerializerMethodField(
+        help_text="Indicates whether the device is idle (not in use)"
+    )
 
     name = serializers.CharField(max_length=100, required=False, default="My Device")
     sensitivity = serializers.IntegerField(
@@ -35,6 +38,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "audio_intensity",
             "api_key",
             "has_active_session",
+            "is_idle",
             "last_seen",
         ]
         read_only_fields = [
@@ -46,6 +50,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "has_active_session",
             "api_key",
             "last_seen",
+            "is_idle",
         ]
 
         swagger_schema_fields = {
@@ -64,6 +69,12 @@ class DeviceSerializer(serializers.ModelSerializer):
         Check if the device has an active session
         """
         return obj.sessions.filter(end_time__isnull=True).exists()
+
+    def get_is_idle(self, obj):
+        """
+        Check if the device is idle
+        """
+        return obj.sessions.filter(end_time__isnull=True, is_idle=True).exists()
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -109,3 +120,4 @@ class DeviceSettingsSerializer(serializers.Serializer):
     vibration_intensity = serializers.IntegerField()
     audio_intensity = serializers.IntegerField()
     has_active_session = serializers.BooleanField()
+    is_idle = serializers.BooleanField()

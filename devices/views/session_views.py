@@ -66,6 +66,10 @@ class SessionStartView(APIView):
 
             try:
                 # Include more data in the event for debugging
+
+                # Check if the device is idle
+                is_idle = device.sessions.filter(end_time__isnull=True, is_idle=True).exists()
+
                 async_to_sync(channel_layer.group_send)(
                     group_name,
                     {
@@ -75,30 +79,15 @@ class SessionStartView(APIView):
                         "settings": {
                             "sensitivity": device.sensitivity,
                             "vibration_intensity": device.vibration_intensity,
-                            "has_active_session": True,
                             "audio_intensity": device.audio_intensity,
+                            "has_active_session": True,
+                            "is_idle": is_idle,
                         },
                     },
                 )
             except Exception as e:
                 logger.error(f"Failed to send WebSocket notification: {str(e)}")
                 logger.exception("WebSocket notification error details:")
-
-    def notify_session_status_change(self, device):
-        """Notify WebSocket clients about session status change"""
-        channel_layer = get_channel_layer()
-        if channel_layer:
-            group_name = f"device_settings_{device.id}"
-            # Send a more specific event type with session action info
-            async_to_sync(channel_layer.group_send)(
-                group_name,
-                {
-                    "type": "session_status_event",  # New event type
-                    "device_id": str(device.id),
-                    "action": "start_session",  # Specific action for session start
-                    "has_active_session": True,
-                },
-            )
 
 
 @extend_schema_view(
@@ -125,6 +114,7 @@ class SessionStopView(APIView):
             return Response({"message": "No active session"}, status=status.HTTP_200_OK)
 
         active_session.end_time = timezone.now()
+        active_session.is_idle = False
         active_session.save()
 
         user = self.request.user
@@ -135,7 +125,7 @@ class SessionStopView(APIView):
         # Initialize user ranks if they don't exist
         self._initialize_user_ranks(user)
 
-        # Notify WebSocket clients about session status change
+        # Notify WebSocket clients about a session status change
         self.notify_settings_change(device)
 
         return Response({"message": "Session stopped"}, status=status.HTTP_200_OK)
@@ -169,8 +159,7 @@ class SessionStopView(APIView):
             for category in categories
         }
 
-        # Define threshold for "good" posture (e.g., score >= 70 is good)
-        GOOD_POSTURE_THRESHOLD = 70
+        GOOD_POSTURE_THRESHOLD = device.sensitivity
 
         # Streaks and time tracking
         readings_sorted = readings.order_by("timestamp")
@@ -298,22 +287,6 @@ class SessionStopView(APIView):
                         user=user, category=category_code, defaults={"tier": none_tier, "current_score": 0}
                     )
 
-    def notify_session_status_change(self, device):
-        """Notify WebSocket clients about session status change"""
-        channel_layer = get_channel_layer()
-        if channel_layer:
-            group_name = f"device_settings_{device.id}"
-            # Send a more specific event type with session action info
-            async_to_sync(channel_layer.group_send)(
-                group_name,
-                {
-                    "type": "session_status_event",  # New event type
-                    "device_id": str(device.id),
-                    "action": "stop_session",  # Specific action for session stop
-                    "has_active_session": False,
-                },
-            )
-
     def notify_settings_change(self, device):
         """
         Notify WebSocket clients about device setting changes
@@ -327,6 +300,10 @@ class SessionStopView(APIView):
             group_name = f"device_settings_{device_id}"
 
             try:
+
+                # Check if the device is idle
+                is_idle = device.sessions.filter(end_time__isnull=True, is_idle=True).exists()
+
                 # Include more data in the event for debugging
                 async_to_sync(channel_layer.group_send)(
                     group_name,
@@ -339,6 +316,7 @@ class SessionStopView(APIView):
                             "vibration_intensity": device.vibration_intensity,
                             "audio_intensity": device.audio_intensity,
                             "has_active_session": False,
+                            "is_idle": is_idle,
                         },
                     },
                 )
@@ -366,8 +344,14 @@ class SessionStatusView(APIView):
     def get(self, request, device_id):
         device = get_object_or_404(Device, id=device_id)
 
-        is_active = device.sessions.filter(end_time__isnull=True).exists()
-        return Response({"session_active": is_active})
+        # Get the active session (if any)
+        session = device.sessions.filter(end_time__isnull=True).first()
+
+        # A session is active if it was found, since we already filtered for end_time is None
+        has_active_session = session is not None
+        is_idle = session.is_idle if has_active_session else False
+
+        return Response({"has_active_session": has_active_session, "is_idle": is_idle})
 
 
 @extend_schema_view(

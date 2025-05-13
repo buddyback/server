@@ -9,7 +9,7 @@ class SessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Session
         fields = "__all__"
-        read_only_fields = ("start_time", "end_time", "device")
+        read_only_fields = ("start_time", "end_time", "device", "is_idle")
 
     def get_duration(self, obj):
         return obj.duration()
