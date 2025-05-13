@@ -21,6 +21,15 @@ from ranks.models import RankTier, UserRank
 logger = logging.getLogger(__name__)
 
 
+def check_device_alive(device):
+    """
+    Check if the device is alive based on its last seen timestamp.
+    """
+    if not device.last_seen:
+        return False
+    return (timezone.now() - device.last_seen).total_seconds() < 60 #TODO Adjust the threshold as needed
+
+
 @extend_schema_view(
     put=extend_schema(
         description="Start a new session for a device",
@@ -40,6 +49,10 @@ class SessionStartView(APIView):
 
     def put(self, request, device_id):
         device = get_object_or_404(Device, id=device_id)
+
+        # Check if the device is alive
+        if not check_device_alive(device):
+            return Response({"message": "Device is not alive"}, status=status.HTTP_400_BAD_REQUEST)
 
         active_session = device.sessions.filter(end_time__isnull=True).first()
         if active_session:
@@ -108,6 +121,10 @@ class SessionStopView(APIView):
 
     def put(self, request, device_id):
         device = get_object_or_404(Device, id=device_id)
+
+        # Check if the device is alive
+        if not check_device_alive(device):
+            return Response({"message": "Device is not alive"}, status=status.HTTP_400_BAD_REQUEST)
 
         active_session = device.sessions.filter(end_time__isnull=True).first()
         if not active_session:
@@ -379,6 +396,6 @@ class IsDeviceAlive(APIView):
         device = get_object_or_404(Device, id=device_id)
 
         # Check if the device is alive
-        is_alive = device.last_seen and (timezone.now() - device.last_seen).total_seconds() < 60
+        is_alive = check_device_alive(device)
 
         return Response({"is_alive": is_alive})
