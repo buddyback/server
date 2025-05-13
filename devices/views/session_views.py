@@ -27,7 +27,7 @@ def check_device_alive(device):
     """
     if not device.last_seen:
         return False
-    return (timezone.now() - device.last_seen).total_seconds() < 60 #TODO Adjust the threshold as needed
+    return (timezone.now() - device.last_seen).total_seconds() < 60  # TODO Adjust the threshold as needed
 
 
 @extend_schema_view(

@@ -9,9 +9,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     has_active_session = serializers.SerializerMethodField(
         help_text="Indicates whether the device has an active session"
     )
-    is_idle = serializers.SerializerMethodField(
-        help_text="Indicates whether the device is idle (not in use)"
-    )
+    is_idle = serializers.SerializerMethodField(help_text="Indicates whether the device is idle (not in use)")
 
     name = serializers.CharField(max_length=100, required=False, default="My Device")
     sensitivity = serializers.IntegerField(
