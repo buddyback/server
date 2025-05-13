@@ -1,7 +1,7 @@
-import asyncio
 import json
 import logging
 import uuid
+from datetime import timedelta
 from urllib.parse import parse_qs
 
 from asgiref.sync import sync_to_async
@@ -56,7 +56,13 @@ class DeviceConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         logger.info(f"WebSocket disconnecting for device: {self.device_id}, code: {close_code}")
 
-        # Removed heartbeat task cancellation
+        # Stop the session if it exists
+        if hasattr(self, "device"):
+            session_stopped = await self.stop_active_session()
+            if session_stopped:
+                logger.info(f"Session ended for device: {self.device_id} on disconnect")
+            else:
+                logger.info(f"No active session found for device: {self.device_id}")
 
         # Remove from device group
         if hasattr(self, "group_name"):
@@ -75,8 +81,18 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             if message_type == "heartbeat":
                 logger.debug(f"Heartbeat received from device: {self.device_id}")
                 await self.update_last_seen()
-                # Send acknowledgment back to client
-                await self.send(text_data=json.dumps({"type": "heartbeat_ack"}))
+                # Check if session should be stopped due to inactivity
+                session_stopped = await self.stop_session_if_no_data_received_for_too_long()
+                if session_stopped:
+                    logger.info(f"Session stopped due to inactivity for device: {self.device_id}")
+                    # Send updated settings to notify the device
+                    await self.send_device_settings()
+                    # Explicitly notify about the session status
+                    await self.send(text_data=json.dumps({
+                        "type": "session_status",
+                        "action": "stop",
+                        "has_active_session": False
+                    }))
                 return
 
             # Handle settings requests
@@ -107,6 +123,28 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             self.device.save(update_fields=["last_seen"])
             logger.debug(f"Updated last_seen for device: {self.device_id}")
             return True
+        except Exception as e:
+            logger.error(f"Error updating last_seen: {str(e)}")
+            return False
+
+    @sync_to_async
+    def stop_session_if_no_data_received_for_too_long(self):
+        try:
+            session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
+
+            if session:
+                # Check if the last PostureReading is older than 60 minutes
+                time_threshold = now() - timedelta(seconds=60*60)
+
+                last_reading = self.device.posture_readings.order_by("-timestamp").first()
+
+                if last_reading and last_reading.timestamp > time_threshold:
+                    session.end_time = now()
+                    session.save(update_fields=["end_time"])
+                    logger.info(f"Session stopped for device: {self.device_id} due to inactivity")
+                    return True
+                return False
+            return False
         except Exception as e:
             logger.error(f"Error updating last_seen: {str(e)}")
             return False
@@ -255,3 +293,17 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             logger.info(f"Sent session {action} event to device: {self.device_id}")
         else:
             logger.warning(f"Ignoring session event - device ID mismatch: expected {self.device_id}, got {device_id}")
+
+    @sync_to_async
+    def stop_active_session(self):
+        """Stop active session for the device"""
+        try:
+            session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
+            if session:
+                session.end_time = now()
+                session.save(update_fields=["end_time"])
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error stopping active session: {str(e)}")
+            return False
