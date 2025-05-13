@@ -221,7 +221,8 @@ class DeviceConsumer(AsyncWebsocketConsumer):
             session = Session.objects.filter(device=self.device, end_time__isnull=True).first()
             if session:
                 session.end_time = now()
-                session.save(update_fields=["end_time"])
+                session.is_idle = False
+                session.save(update_fields=["end_time", "is_idle"])
                 return True
             return False
         except Exception as e:
