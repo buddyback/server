@@ -220,7 +220,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
         device_id = serializer.instance.id
         # Create QR content with device info and claim endpoint
-        qr_content = f"device_id={device_id}"
+        qr_content = f"{device_id}"
 
         # Generate a temporary QR code file
         temp_filename = f"device_{device_id}_qrcode.png"
