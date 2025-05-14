@@ -1,7 +1,12 @@
+import io
+
+# Generate QR code for the device
+import os
 import time
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.http import FileResponse
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
@@ -13,6 +18,7 @@ from custom_permissions.custom_permissions import IsAdminOrReadOnly
 from devices.models import Device, Session
 from devices.serializers.device_serializers import DeviceClaimSerializer, DeviceSerializer, DeviceSettingsSerializer
 from posture.authentication import DeviceAPIKeyAuthentication
+from utils.qrcode_generator import generate_qrcode
 
 # Long polling timeout in seconds - kept for REST API fallback
 LONG_POLL_TIMEOUT = 30
@@ -211,8 +217,32 @@ class DeviceViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+        device_id = serializer.instance.id
+        # Create QR content with device info and claim endpoint
+        qr_content = f"device_id={device_id}"
+
+        # Generate a temporary QR code file
+        temp_filename = f"device_{device_id}_qrcode.png"
+        qr_path = generate_qrcode(qr_content, temp_filename)
+
+        # Open the image and prepare for direct download
+        with open(qr_path, "rb") as qr_file:
+            image_data = qr_file.read()
+
+        # Remove the temporary file
+        os.remove(qr_path)
+
+        # Create a file-like object from the image data
+        image_io = io.BytesIO(image_data)
+
+        # Return as FileResponse for proper binary handling
+        response = FileResponse(image_io, content_type="image/png")
+        # Ensure proper header formatting for downloading
+        response["Content-Disposition"] = f'attachment; filename="{temp_filename}"'
+        # Add Access-Control-Expose-Headers to make Content-Disposition accessible to JS
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return response
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

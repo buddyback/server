@@ -38,6 +38,7 @@ mypy_extensions==1.1.0
 oauthlib==3.2.2
 packaging==25.0
 pathspec==0.12.1
+pillow==11.2.1
 pip-tools==7.4.1
 platformdirs==4.3.7
 pyasn1==0.6.1
@@ -51,6 +52,7 @@ pyOpenSSL==25.0.0
 pyproject_hooks==1.2.0
 python3-openid==3.2.0
 PyYAML==6.0.2
+qrcode==8.2
 redis==5.0.0
 referencing==0.36.2
 requests==2.32.3
