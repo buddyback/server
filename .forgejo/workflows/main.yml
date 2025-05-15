@@ -17,6 +17,7 @@ jobs:
     runs-on: docker
     container:
       image: catthehacker/ubuntu:act-latest
+      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
 
     steps:
       - name: Checkout repository
